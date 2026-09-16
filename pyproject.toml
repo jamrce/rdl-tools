@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rdl-tools"
-version = "0.1.0rc4"
+version = "0.1.0"
 description = "Build CLI for RDL ontology modules: validates the RDF, renders the versioned artifact tree, and generates the documentation site's data."
 readme = "README.md"
 requires-python = ">=3.13"

@@ -864,7 +864,7 @@ html = [
 
 [[package]]
 name = "rdl-tools"
-version = "0.1.0rc4"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyshacl" },
