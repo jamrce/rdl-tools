@@ -1,0 +1,223 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix sample_top: <https://example.org/sample/top/v0/ont/> .
+
+# Test fixture, not a published ontology. A small four-dimensionalist top-level ontology, closed
+# under its own subclass and sub-property axioms, so the generator meets a realistic term graph.
+#
+# ATTRIBUTION
+# The term structure and the wording of the definitions below are adapted from the IES Top
+# Ontology documentation:
+#   https://github.com/IES-Org/ies-top/blob/main/docs/ies-top.md
+# © Crown Copyright 2025, part of the Information Exchange Standard initiative and under the
+# custodianship of the Department for Business and Trade (UK). That documentation is published
+# under the Open Government Licence v3.0, so this file contains public sector information
+# licensed under the OGL v3.0:
+#   https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+# The repository's own licence is in LICENSE.md, which records this exception.
+#
+# It uses rdfs:Class / rdf:Property typing and rdfs:comment throughout, which is the older style a
+# real module can still feed the generator. Extent is the one exception: it also carries the four
+# skos annotations, covering the Definition / Examples / Guidance / Scope sections and the
+# skos-over-comment precedence.
+#
+# The namespace is example.org so the fixture can never be taken for the real ontology, while the
+# pins sit under the module's own authority, which keeps the derived-module case under test.
+
+<https://example.org/sample/top/v0/ont> a owl:Ontology ;
+    dcterms:title "Sample Top"@en ;
+    dcterms:description "A top level ontology grounded in Extensional Four-Dimensionalism."@en ;
+    dcterms:publisher "Sample Publisher"@en ;
+    dcterms:license <https://spdx.org/licenses/MIT.html> ;
+    dcterms:created "2025-09-30"^^xsd:date ;
+    dcterms:modified "2026-08-23"^^xsd:date ;
+    owl:versionInfo "0.5.7" ;
+    vann:preferredNamespacePrefix "sample_top" ;
+    vann:preferredNamespaceUri "https://example.org/sample/top/v0/ont/" .
+
+# ─── classes ───
+
+sample_top:Thing a rdfs:Class ;
+    rdfs:label "Thing" ;
+    rdfs:comment "Either an Extent, Set, or Tuple." ;
+    rdfs:subClassOf rdfs:Resource .
+
+# The one term carrying skos annotations; everything else uses rdfs:comment, covering the fallback.
+sample_top:Extent a rdfs:Class ;
+    rdfs:label "Extent" ;
+    rdfs:comment "A Thing that is a part of the pluriverse - and so has an extent." ;
+    rdfs:subClassOf sample_top:Thing ;
+    sample_top:powertype sample_top:SetOfExtents ;
+    skos:definition "A Thing that is a part of the pluriverse - and so has an extent."@en ;
+    skos:example "A person's life. A country's territory. The duration of a meeting."@en ;
+    skos:editorialNote "Use Extent as the domain or range of any relation that depends on spatial or temporal boundedness, such as connected or partWhole."@en ;
+    skos:scopeNote "Includes anything with a four-dimensional extent. Excludes Sets and Tuples, which have none."@en .
+
+sample_top:WorldboundExtent a rdfs:Class ;
+    rdfs:label "Worldbound Extent" ;
+    rdfs:comment "An extent that is bound to one world i.e. part of one and only one world." ;
+    rdfs:subClassOf sample_top:Extent .
+
+sample_top:SpacetimeExtent a rdfs:Class ;
+    rdfs:label "Spacetime Extent" ;
+    rdfs:comment "A spatiotemporal extent." ;
+    rdfs:subClassOf sample_top:Extent .
+
+sample_top:RegularSpacetimeExtent a rdfs:Class ;
+    rdfs:label "Regular Spacetime Extent" ;
+    rdfs:comment "A spacetime extent which is part of a world which is a smooth four-dimensional manifold (a universe). This is sometimes referred to as a four-dimensional extent." ;
+    rdfs:subClassOf sample_top:SpacetimeExtent .
+
+sample_top:State a rdfs:Class ;
+    rdfs:label "State" ;
+    rdfs:comment "A regular spacetime extent that is universe-bound i.e. part of one and only one universe." ;
+    rdfs:subClassOf sample_top:RegularSpacetimeExtent, sample_top:WorldboundExtent .
+
+sample_top:SelfDisconnectedState a rdfs:Class ;
+    rdfs:label "Self Disconnected State" ;
+    rdfs:comment "A state that is a single whole that can be cut into two parts that do not touch; separated by a gap. It is made up of separate chunks rather than being one continuous extent." ;
+    rdfs:subClassOf sample_top:State .
+
+sample_top:TemporallyIntermittentState a rdfs:Class ;
+    rdfs:label "Temporally Intermittent State" ;
+    rdfs:comment "A self-disconnected state with a gap, or gaps, in time. It can be cut into an earlier part and a later part that do not meet." ;
+    rdfs:subClassOf sample_top:SelfDisconnectedState .
+
+sample_top:Timespan a rdfs:Class ;
+    rdfs:label "Timespan" ;
+    rdfs:comment "A state (i.e. universe-bound regular spacetime extent) that is a temporal part of a universe. Note: a universe is an improper temporal part of itself - and so a maximal timespan." ;
+    rdfs:subClassOf sample_top:State .
+
+sample_top:IntermittentTimespan a rdfs:Class ;
+    rdfs:label "Intermittent Timespan" ;
+    rdfs:comment "An interrupted timespan which is also a fusion of timespans." ;
+    rdfs:subClassOf sample_top:Timespan, sample_top:TemporallyIntermittentState .
+
+sample_top:Set a rdfs:Class ;
+    rdfs:label "Set" ;
+    rdfs:comment "A Thing that is an unordered collection of other Things, sometimes referred to as a class or kind." ;
+    rdfs:subClassOf sample_top:Thing, rdfs:Class .
+
+sample_top:SetOfExtents a rdfs:Class ;
+    rdfs:label "Set Of Extents" ;
+    rdfs:comment "The powertype of Extent. An instance of this is a set that contains extents." ;
+    rdfs:subClassOf sample_top:Set .
+
+sample_top:Tuple a rdfs:Class ;
+    rdfs:label "Tuple" ;
+    rdfs:comment "A Thing that is an (ordered) sequence of Things. Each position in the sequence identified by a tuplePlace." ;
+    rdfs:subClassOf sample_top:Thing .
+
+sample_top:FourPlaceTuple a rdfs:Class ;
+    rdfs:label "Four Place Tuple" ;
+    rdfs:comment "A Tuple with four places." ;
+    rdfs:subClassOf sample_top:Tuple .
+
+# ─── properties ───
+
+sample_top:groundingRelation a rdf:Property ;
+    rdfs:label "grounding relation" ;
+    rdfs:comment "A Thing which is one of the four basic relationships between two Things. Realized in RDF as a rdf:property." .
+
+sample_top:subSuperRelation a rdf:Property ;
+    rdfs:label "sub super relation" ;
+    rdfs:comment "A grounding relation which is either a sub-super relation between Sets (rdfs:subClassOf) or Tuples, including Couples (rdfs:subPropertyOf)." ;
+    rdfs:subPropertyOf sample_top:groundingRelation .
+
+sample_top:powertype a rdf:Property ;
+    rdfs:label "powertype" ;
+    rdfs:comment "An rdf:type relation that asserts one set is the powerset of the other (see Cantors theorem)." ;
+    rdfs:domain rdfs:Class ;
+    rdfs:subPropertyOf rdf:type .
+
+sample_top:couple a rdf:Property ;
+    rdfs:label "couple" ;
+    rdfs:comment "A two placed tuple. Realized in RDF as an rdf:property." ;
+    rdfs:domain sample_top:Thing ;
+    rdfs:range sample_top:Thing .
+
+sample_top:connected a rdf:Property, owl:SymmetricProperty ;
+    rdfs:label "connected" ;
+    rdfs:comment "A couple relation between two extents that are in contact, meeting with no gap between them. This couple relation is symmetric." ;
+    rdfs:domain sample_top:Extent ;
+    rdfs:range sample_top:Extent ;
+    rdfs:subPropertyOf sample_top:couple .
+
+sample_top:disconnected a rdf:Property, owl:SymmetricProperty ;
+    rdfs:label "disconnected" ;
+    rdfs:comment "A couple relation between two extents that are not in contact, i.e., they are separated by a gap. This couple relation is symmetric." ;
+    rdfs:domain sample_top:Extent ;
+    rdfs:range sample_top:Extent ;
+    rdfs:subPropertyOf sample_top:couple .
+
+sample_top:partWhole a rdf:Property ;
+    rdfs:label "part whole" ;
+    rdfs:comment "A grounding relation placing one extent as part of another (the whole)." ;
+    rdfs:domain sample_top:Extent ;
+    rdfs:range sample_top:Extent ;
+    rdfs:subPropertyOf sample_top:groundingRelation, sample_top:connected .
+
+sample_top:isPartOf a rdf:Property ;
+    rdfs:label "is part of" ;
+    rdfs:comment "A partWhole relation between two states, where both states are bound to the same universe (universe-mates)." ;
+    rdfs:domain sample_top:State ;
+    rdfs:range sample_top:State ;
+    rdfs:subPropertyOf sample_top:partWhole .
+
+sample_top:isImproperPartOf a rdf:Property ;
+    rdfs:label "is improper part of" ;
+    rdfs:comment "An isPartOf between two states that are the same i.e. the part is identical to the whole." ;
+    rdfs:subPropertyOf sample_top:isPartOf .
+
+sample_top:isTemporalPartOf a rdf:Property ;
+    rdfs:label "is temporal part of" ;
+    rdfs:comment "An isPartOf that asserts the spatial extent of the (whole) state is co-extensive with the spatial extent of the (part) state for a particular period of time." ;
+    rdfs:subPropertyOf sample_top:isPartOf .
+
+sample_top:isAStartOf a rdf:Property ;
+    rdfs:label "is a start of" ;
+    rdfs:comment "An isTemporalPartOf that places a state as one (but not always the only) temporal part at the beginning of another." ;
+    rdfs:subPropertyOf sample_top:isTemporalPartOf .
+
+sample_top:isAFinishOf a rdf:Property ;
+    rdfs:label "is a finish of" ;
+    rdfs:comment "An isTemporalPartOf that places a state as one (but not always the only) temporal part at the conclusion of another." ;
+    rdfs:subPropertyOf sample_top:isTemporalPartOf .
+
+sample_top:relationship a rdf:Property ;
+    rdfs:label "relationship" ;
+    rdfs:comment "A couple between any two regular spacetime extents." ;
+    rdfs:domain sample_top:RegularSpacetimeExtent ;
+    rdfs:range sample_top:RegularSpacetimeExtent ;
+    rdfs:subPropertyOf sample_top:couple .
+
+sample_top:relationshipBetweenStates a rdf:Property ;
+    rdfs:label "relationship between states" ;
+    rdfs:comment "A relationship between any two states, where a state is a universe-bound regular spacetime extent." ;
+    rdfs:domain sample_top:State ;
+    rdfs:range sample_top:State ;
+    rdfs:subPropertyOf sample_top:relationship .
+
+sample_top:relationshipBetweenUniverseMates a rdf:Property ;
+    rdfs:label "relationship between universe mates" ;
+    rdfs:comment "A relationship where those states are part of the same universe as one another." ;
+    rdfs:subPropertyOf sample_top:relationshipBetweenStates .
+
+sample_top:after a rdf:Property ;
+    rdfs:label "after" ;
+    rdfs:comment "A precedence relation between universe-mates where one lies ahead of the other in time: every part of the later one has some part of the earlier one behind it, every part of the earlier one has some part of the later one ahead of it, and nothing runs back the other way." ;
+    rdfs:subPropertyOf sample_top:relationshipBetweenUniverseMates .
+
+# ─── foreign subjects, referenced but never listed ───
+# The RDF/S vocabulary placed under the grounding relations: these must surface in Used By
+# without becoming terms of this module.
+
+rdf:type rdfs:subPropertyOf sample_top:groundingRelation .
+rdfs:subClassOf rdfs:subPropertyOf sample_top:subSuperRelation .
+rdfs:subPropertyOf rdfs:subPropertyOf sample_top:subSuperRelation .

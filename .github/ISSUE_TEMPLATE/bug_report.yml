@@ -1,0 +1,57 @@
+name: "🐛 Bug report"
+description: A generator, validator, or CLI command did the wrong thing.
+title: "[BUG] <title>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a security vulnerability, use [private reporting](https://github.com/jamrce/rdl-tools/security/advisories/new) instead of this form.
+  - type: input
+    id: version
+    attributes:
+      label: rdl-tools version
+      description: Output of `rdl-tools --version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command run
+      description: The exact subcommand and flags, e.g. `rdl-tools render-docs --version 0.5.7`
+      placeholder: rdl-tools <command> ...
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What you expected to happen, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: ttl
+    attributes:
+      label: Minimal .ttl that reproduces it
+      description: |
+        Paste the smallest `spec/*.ttl` that triggers the bug — reduce it if you can.
+        See CONTRIBUTING.md: this is the useful thing you can attach to reproduce.
+      render: turtle
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / traceback
+      description: Full stderr, or the traceback.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and OS
+      placeholder: "Python 3.13, Ubuntu 24.04"
+    validations:
+      required: true

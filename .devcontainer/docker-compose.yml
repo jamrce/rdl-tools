@@ -1,0 +1,21 @@
+services:
+  rdl-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+
+      # The venv never leaves the container: its interpreter symlinks point into /opt/uv-python.
+      - rdl-tools-venv:/workspace/.venv
+
+      # uv's download cache, on the host so a rebuild refetches nothing.
+      - ${UV_CACHE_HOST:-../.uv-cache}:/home/vscode/.cache/uv
+
+    # For personal tooling that needs to reach something on the host — e.g. a grepai indexer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  rdl-tools-venv:

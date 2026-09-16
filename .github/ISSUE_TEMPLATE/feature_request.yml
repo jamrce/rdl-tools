@@ -1,0 +1,42 @@
+name: "💡 Feature request"
+description: Propose a new subcommand, flag, or a change to what a generator writes.
+title: "[REQUEST] <title>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A change to what a generator writes is a change to every module repository pinning this package. Read CONTRIBUTING.md, and then open an issue before a pull request that changes output.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What you want to be able to do that you can't today.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: The command line, or the spec/ input and the output you'd expect from it.
+      render: sh
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Where does this belong? (A change to the module layout belongs in rdl-module-template instead.)
+      options:
+        - A new rdl-tools subcommand
+        - A modification to an existing subcommand
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: drawbacks
+    attributes:
+      label: Drawbacks
+      description: What would this break or complicate?
+    validations:
+      required: false

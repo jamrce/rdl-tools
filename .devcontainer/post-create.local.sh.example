@@ -1,0 +1,21 @@
+#!/bin/sh
+# Copy this to post-create.local.sh (gitignored) to run your own extras after the shared setup.
+# Example: installing grepai for a personal indexer.
+set -eu
+
+GREPAI_VERSION=0.37.0
+GREPAI_SHA256_AMD64=f4862fb939d45f7ce1e1d3d97269d14ac5882e7c5614aecee16df3ae486466f8
+GREPAI_SHA256_ARM64=d55b16073a977a2f19dbfca73e14f9322d68ae478d8d84c2655ed7b482fa5438
+
+case "$(dpkg --print-architecture)" in
+    amd64) arch=amd64; sha="$GREPAI_SHA256_AMD64" ;;
+    arm64) arch=arm64; sha="$GREPAI_SHA256_ARM64" ;;
+    *) echo "no grepai build for $(dpkg --print-architecture)" >&2; exit 1 ;;
+esac
+
+file="grepai_${GREPAI_VERSION}_linux_${arch}.tar.gz"
+curl -fsSL -o "/tmp/${file}" "https://github.com/yoanbernabeu/grepai/releases/download/v${GREPAI_VERSION}/${file}"
+echo "${sha}  /tmp/${file}" | sha256sum -c -
+sudo tar -xzf "/tmp/${file}" -C /usr/local/bin grepai
+rm "/tmp/${file}"
+test -x /usr/local/bin/grepai

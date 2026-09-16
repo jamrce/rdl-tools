@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments. `.venv-314` is the second CI leg, created by hand — see CONTRIBUTING.md.
+.venv*/
+venv/
+
+# Default host path for the devcontainer's uv cache mount.
+/.uv-cache/
+
+# Personal devcontainer extras — see .devcontainer/post-create.local.sh.example.
+/.devcontainer/*.local.sh
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local secrets. tests/fixtures/*/.env is public fixture config and stays tracked.
+/.env
+/.env.*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp

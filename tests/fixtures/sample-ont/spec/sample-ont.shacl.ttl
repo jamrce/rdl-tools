@@ -1,0 +1,43 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix sample_top: <https://example.org/sample/top/v0/ont/> .
+@prefix sample_sh: <https://example.org/sample/top/v0/shapes/> .
+
+# Shapes for the fixture in sample-ont.ttl; see that file's header for attribution and licence.
+#
+# The one shape whose sh:path is a blank node holding an sh:inversePath, which exercises the
+# path-expression renderer: the row reads `^isPartOf`, carries the sh:message and a `warning`
+# severity chip, and puts no cardinality chip on the forward isPartOf property.
+sample_sh:IntermittentTimespanShape a sh:NodeShape ;
+    sh:targetClass sample_top:IntermittentTimespan ;
+    sh:property [
+        sh:path [ sh:inversePath sample_top:isPartOf ] ;
+        sh:class sample_top:TemporallyIntermittentState ;
+        sh:severity sh:Warning ;
+        sh:message "Any state which isPartOf an instance of sample_top:IntermittentTimespan should also be of type sample_top:TemporallyIntermittentState." ;
+    ] .
+
+# These two shapes exist to exercise the constraint table and the cardinality chips: Extent gets
+# connected and disconnected at 0..*, State gets isPartOf at 0..1.
+sample_sh:ExtentShape a sh:NodeShape ;
+    sh:targetClass sample_top:Extent ;
+    sh:property [
+        sh:path sample_top:connected ;
+        sh:class sample_top:Extent ;
+        sh:minCount 0 ;
+    ] ,
+    [
+        sh:path sample_top:disconnected ;
+        sh:class sample_top:Extent ;
+        sh:minCount 0 ;
+    ] .
+
+sample_sh:StateShape a sh:NodeShape ;
+    sh:targetClass sample_top:State ;
+    sh:property [
+        sh:path sample_top:isPartOf ;
+        sh:class sample_top:State ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .

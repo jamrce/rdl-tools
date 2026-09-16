@@ -1,0 +1,39 @@
+# A companion export of the kind a module author drops beside their ontology: opaque-id instance
+# data with foreign predicates, no owl:Ontology subject and no sh:NodeShape.
+
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix vocab: <https://example.net/vocab/v0/ont/> .
+@prefix shape: <https://example.net/shapes/v0/ont/> .
+@prefix qudt:  <http://qudt.org/schema/qudt/> .
+@prefix unit:  <http://qudt.org/vocab/unit/> .
+@prefix :      <https://example.net/data/> .
+
+:9e0af383-c19c-4aea-a58c-f8b128281b10 a shape:Introduction ;
+    vocab:inRepresentation :86424e7a-75bd-422e-91cc-cc7f439ec441 ;
+    vocab:representationValue "A documentation export, not an ontology source." .
+
+:31a226f2-eb6c-4407-be2c-fcacb8fb5bf8 a vocab:DocumentSection ;
+    vocab:inRepresentation :86424e7a-75bd-422e-91cc-cc7f439ec441 ;
+    vocab:isRepresentedAs :5035900a-01ed-410e-80fc-b0a3253a22d7 .
+
+:5035900a-01ed-410e-80fc-b0a3253a22d7 a vocab:Name ;
+    vocab:representationValue "Overview" .
+
+:d0c50d37-b058-420b-95be-55152791ca87 a vocab:Description ;
+    vocab:representationValue "Instance data carrying no class or property declarations." .
+
+:14e8f870-2e8d-4340-861e-6666a5c23828 a shape:Box ;
+    vocab:inRepresentation :31a226f2-eb6c-4407-be2c-fcacb8fb5bf8 ;
+    vocab:isIdentifiedBy :9f066807-22a8-4219-875c-d3639c371de2 .
+
+:9f066807-22a8-4219-875c-d3639c371de2 a vocab:Easting, qudt:Quantity ;
+    qudt:quantityValue :25536cad-dd11-45ec-844e-5fc7ec3fc9ea .
+
+:25536cad-dd11-45ec-844e-5fc7ec3fc9ea a qudt:QuantityValue ;
+    qudt:value "0.0"^^xsd:double ;
+    qudt:unit unit:PIXEL .
+
+<https://example.net/vocab/v0/ont/LivingOrganism> vocab:isRepresentedAs :14e8f870-2e8d-4340-861e-6666a5c23828 ;
+    rdfs:label "an existing foreign term, referenced but not declared" .

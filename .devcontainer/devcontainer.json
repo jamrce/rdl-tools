@@ -1,0 +1,39 @@
+{
+  "name": "RDL Tools",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "rdl-tools",
+  "workspaceFolder": "/workspace",
+  // The image already runs as this user (Dockerfile `USER`); this is who the editor connects as.
+  "remoteUser": "vscode",
+
+  // Persists the Claude login and settings across rebuilds.
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}

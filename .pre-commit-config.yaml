@@ -1,0 +1,28 @@
+# The formatting half of ci.yml, run before the commit rather than after the push.
+# `mypy` and the test suite are deliberately absent: too slow for a commit hook, and ci.yml
+# is where they belong.
+#
+#   uv tool install pre-commit && pre-commit install
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      # .gitattributes stops CRLF entering the index; this stops it entering the working tree.
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      # A private key committed to a public repo cannot be unpublished, only rotated.
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

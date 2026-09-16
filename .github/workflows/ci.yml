@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  # `ready_for_review` is what re-runs a PR that was opened as a draft; the guard on every job
+  # below is what keeps it from running while it still is one.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # publish.yml calls this before it builds, so a tag is gated on the same checks as a PR.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to a commit SHA, not a tag: a tag can be moved onto new code by
+# its owner, a SHA cannot. The trailing comment records which release it was.
+jobs:
+  lint:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e ".[dev]"
+      - run: uv lock --check
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      # Catches a syntax error in any file, including one no test imports.
+      - run: python -m compileall -q src tests
+      # A blob committed with CRLF stays CRLF in every checkout; .gitattributes cannot undo it.
+      - run: python .github/scripts/check_line_endings.py
+      - run: mypy
+
+  # Three operating systems, because the generators write files a module commits: a CRLF or a
+  # path separator that differs by platform is a diff in every module repository.
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # The module template pins 3.13; 3.14 is current stable.
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install --system -e ".[dev]"
+      - run: coverage run -m pytest
+      # The floor is in pyproject.toml; a change that quietly drops coverage fails here.
+      - run: coverage report
+
+  # The wheel can build and still ship no console entry point and no package data. Both
+  # interpreters, because every classifier the package advertises is a promise to a user.
+  package:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install --system -e ".[dev]"
+      - run: uv build
+      - run: twine check dist/*
+
+      # Plain venv + pip, not uv: every documented install uses pip, so this is the only job
+      # exercising the path a user actually takes.
+      - name: Wheel smoke test — the console script and every subcommand's help
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet dist/*.whl
+          /tmp/smoke/bin/rdl-tools --help
+          /tmp/smoke/bin/rdl-tools --version
+          for c in init validate format expand-pins render-docs render-site-data fetch-fonts; do
+            /tmp/smoke/bin/rdl-tools "$c" --help > /dev/null
+          done
+
+  standalone-checkout:
+    # The suite must run from a bare copy: no `.git`, nothing above it, no path it does not own.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Copy the folder out and run it from there
+        run: |
+          extracted="$(mktemp -d)/rdl-tools"
+          cp -r . "$extracted"
+          rm -rf "$extracted/.git"
+          cd "$extracted"
+          uv pip install --system -e ".[dev]"
+          pytest
+          uv build --out-dir dist
+
+  # One artefact tree, generated on each OS and compared byte for byte. The suite's own CRLF test
+  # proves each run locally; this proves the three agree, which is what a module repo depends on.
+  cross-platform-output:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e ".[dev]"
+      - name: Generate from the fixture module
+        run: python .github/scripts/generate_fixture_tree.py out
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: generated-${{ matrix.os }}
+          path: out/
+
+  compare-output:
+    needs: cross-platform-output
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: trees
+      - name: Every OS generated the same bytes
+        run: python .github/scripts/compare_trees.py trees

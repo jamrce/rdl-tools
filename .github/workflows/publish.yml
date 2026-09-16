@@ -1,0 +1,109 @@
+name: Publish rdl-tools
+
+# A version ending in aN/bN/rcN publishes to TestPyPI; anything else publishes to PyPI. Both use
+# Trusted Publishing, so no API token exists here.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+# Never cancelled: a publish must not be interrupted half-way.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+# Actions are pinned to a commit SHA; the trailing comment records which release it was.
+jobs:
+  # First, and cheap: a version, once on PyPI, cannot be replaced.
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e .
+      - name: Tag matches both declared versions
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          tagged="${TAG#v}"
+          module="$(python -c 'import rdl_tools; print(rdl_tools.__version__)')"
+          project="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          if [ "$tagged" != "$module" ] || [ "$tagged" != "$project" ]; then
+            echo "tag $TAG says $tagged; __init__.py says $module; pyproject.toml says $project." >&2
+            exit 1
+          fi
+          echo "Publishing $tagged."
+
+  # The whole of CI, not a subset of it: a tag is gated on every check a pull request is.
+  ci:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system twine
+      - run: uv build --out-dir dist
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # PyPI Trusted Publishing — no API-token secret in this repository
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: dist
+          path: dist
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      # By extension, never `dist/*`: `uv build` leaves a .gitignore beside the artefacts.
+      - name: One wheel and one sdist, both carrying this tag's version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          found=$(ls dist/*.whl dist/*.tar.gz 2>/dev/null | wc -l)
+          [ "$found" -eq 2 ] || { echo "dist holds $found distributions, expected 2:"; ls dist; exit 1; }
+          for f in dist/*.whl dist/*.tar.gz; do
+            case "$(basename "$f")" in
+              rdl_tools-"$version"[-.]*) ;;
+              *) echo "$f is not rdl-tools $version." >&2; exit 1 ;;
+            esac
+          done
+
+      # A pre-release tag rehearses against TestPyPI. Trusted Publishing is configured on both.
+      - name: Publish
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if printf '%s' "$version" | grep -qE '(a|b|rc)[0-9]+$'; then
+            echo "$version is a pre-release — publishing to TestPyPI."
+            uv publish --index testpypi --trusted-publishing always dist/*.whl dist/*.tar.gz
+          else
+            echo "$version is a final release — publishing to PyPI."
+            uv publish --trusted-publishing always dist/*.whl dist/*.tar.gz
+          fi

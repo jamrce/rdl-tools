@@ -1,0 +1,13 @@
+# Git normalises to LF on commit and checks out LF everywhere, whatever a contributor's
+# core.autocrlf is set to. With `spec.write_generated` writing LF regardless of platform, no
+# CRLF can reach the working tree, the index or a generated file.
+* text=auto eol=lf
+
+# Never touched, on any platform.
+*.woff2 binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.gz    binary
+*.zip   binary
+*.whl   binary
