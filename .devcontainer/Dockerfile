@@ -15,8 +15,8 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
 ARG PYTHON_VERSIONS="3.13 3.14"
 RUN uv python install ${PYTHON_VERSIONS} && chmod -R a+rX /opt/uv-python
 
-# The cache is a host bind mount and the venv is a named volume — different filesystems, so uv
-# cannot hardlink between them.
+# The cache and the venv are separate named volumes — different mounts, so uv cannot hardlink
+# between them.
 ENV UV_LINK_MODE=copy
 
 # Personal tooling (a preferred indexer, a linter nobody else on the team runs) does not belong

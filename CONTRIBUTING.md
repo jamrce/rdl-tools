@@ -36,6 +36,18 @@ There is one suite, and it includes the end-to-end tests: they build the wheel, 
 
 `pytest -m network` is the one opt-in set. It hits the Google Fonts API and nothing in CI runs it.
 
+### Claude Code
+
+Optional. Claude Code sessions run [Resolving an issue](#resolving-an-issue) through `.claude/skills/resolve-issue/`, which reads issues with `gh`. `gh` refuses to run without a login. The contributor logs `gh` in with a read-only fine-grained token, so GitHub itself rejects any write the agent attempts. The browser login `gh` offers by default grants the agent full access to the account instead. Agents never run `gh auth`: `.claude/settings.json` and `.claude/hooks/block-git-writes.sh` block it.
+
+1. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new): resource owner `jamrce`, repository access "Only select repositories" with `jamrce/rdl-tools`, and read-only Contents, Issues and Pull requests. Metadata is added automatically. Set an expiry.
+2. In a terminal in the container, run `gh auth login`. Choose "Paste an authentication token" and paste the token. Never choose "Login with a web browser". Answer "No" to authenticating Git with your GitHub credentials, or `git push` uses the read-only token and fails.
+3. Run `gh auth status`. The token starts with `github_pat_`. A token starting with `gho_` came from the browser login and has your full permissions: run `gh auth logout` and repeat step 2.
+4. In the first Claude Code session, accept the prompt to install the `caveman` and `ponytail` plugins that `.claude/settings.json` enables.
+5. Run `/resolve-issue N`. On `main`, it proposes a branch name and stops.
+
+The login is stored in the container, so a rebuild removes it; repeat steps 2 and 3 after one. Outside the devcontainer, run steps 2 and 3 in the shell Claude Code runs from.
+
 ## Making a change
 
 ### Style
@@ -49,6 +61,14 @@ Inline `#` comments: one line wherever one will do, two at the most. Longer rati
 - **Deterministic generators.** The same input produces byte-identical committed output.
 - **Published artefacts are immutable.** Nothing may rewrite bytes under `website/static/` that a `w3id.org` URL has already served. [ADR-002](docs/adrs/ADR-002-only-committed-turtle-per-pin.md)
 - **A generator fix ships as a release plus a version bump per module**, never as an edit in a module repository.
+
+### Resolving an issue
+
+1. Work on a branch off an up-to-date `main`, one issue per branch, named `<type>/<N>-<slug>` with `type` from the PR title below, e.g. `fix/11-prior-version-chain`. Check the issue's "blocked by" links first; a blocked issue waits.
+2. Write the tests first, and run them to see each one fail for the reason the issue describes. Only then write the implementation, the least code that makes them pass.
+3. Run everything in [Before opening a PR](#before-opening-a-pr).
+4. Add one entry to `CHANGELOG.md` under `## [Unreleased]`, written for a module maintainer, ending with a link to the issue: `([#11](https://github.com/jamrce/rdl-tools/issues/11))`. GitHub does not autolink a bare `#11` in a file.
+5. Open the PR from the template, with `Fixes #N` so the merge closes the issue. The title is a [Conventional Commit](https://www.conventionalcommits.org/) — `feat: …`, `fix: …` — because it becomes the squash-merge commit.
 
 ### Adding a subcommand
 

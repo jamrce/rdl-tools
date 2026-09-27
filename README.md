@@ -56,7 +56,7 @@ Every command takes `--help`. `python -m rdl_tools` works wherever the console s
 
 The commands are not independent. What order to run them in for a new module or a release is defined by [rdl-module-template](https://github.com/jamrce/rdl-module-template) — its `validate.yml` and `release.yml`, and `docs/getting-started-manually.md` for the tool-free equivalent. Three constraints those sequences exist to satisfy:
 
-- **`render-docs` before `render-site-data`.** The version list is built by scanning the pins under `website/static/`, and a historical release with no changelog entry gets its date from the pin's own `ont.ttl`.
+- **`render-docs` before `render-site-data`.** The version list is built by scanning the pins under `website/static/`, and a historical release with no changelog entry gets its date from the pin's own `ont.ttl`. The download buttons come from the version's own artifact tree, so `render-site-data` warns on stderr when that tree is missing and `DOWNLOAD_FORMATS` is not empty.
 - **A Docusaurus doc version is cut before the next release renders.** `reference.mdx` is one working copy, overwritten in place; render past an uncut version and that page is gone. [ADR-003](docs/adrs/ADR-003-doc-version-snapshot-per-release.md)
 - **`expand-pins` after the commit, before any build.** What it writes is git-ignored, so committing first keeps derived files out of the tree; skipping it 404s every historical download link, `npm start` in a fresh checkout included. [ADR-002](docs/adrs/ADR-002-only-committed-turtle-per-pin.md)
 

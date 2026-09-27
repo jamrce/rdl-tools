@@ -8,7 +8,7 @@ set -eu
 
 # Docker creates both mount points as root, so they are chowned before uv writes to them.
 sudo chown -R vscode:vscode /workspace/.venv /home/vscode/.cache/uv
-uv venv --python 3.13
+uv venv --python 3.13 --clear
 uv pip install -e '.[dev]'
 uv tool install pre-commit
 pre-commit install

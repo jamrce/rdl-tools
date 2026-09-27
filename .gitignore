@@ -31,3 +31,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 *.swp
+
+# Personal Claude Code settings; the shared ones are .claude/settings.json.
+/.claude/settings.local.json
+
+# Local tool state.
+.grepai/

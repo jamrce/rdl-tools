@@ -359,6 +359,37 @@ def test_a_generated_ledger_adds_a_download_button(module_copy: Path):
     assert downloads[-1] == {"label": "Ledger", "href": "/sample-ont/v0.5.7/ont/ledger.ttl"}
 
 
+def test_warns_when_the_artifact_tree_is_absent(module_copy: Path, capsys):
+    assert render(module_copy, "--version", "0.5.7") == 0
+    assert (module_copy / "website" / "src" / "generated" / "0.5.7.json").exists()
+    err = capsys.readouterr().err
+    assert "warning: no artifact tree at website/static/v0.5.7/ont/" in err
+    # The test's cwd is not the module, so the command must carry --module-dir to act on it.
+    assert f"Run `rdl-tools render-docs --module-dir {module_copy} --version 0.5.7` first" in err
+
+
+def test_warns_about_an_absent_artifact_tree_under_check(module_copy: Path, capsys):
+    assert render(module_copy, "--check") == 0
+    assert not (module_copy / "website" / "src" / "generated").exists()
+    assert "warning: no artifact tree at website/static/v0.5.7/ont/" in capsys.readouterr().err
+
+
+def test_no_artifact_tree_warning_when_download_formats_is_empty(module_copy: Path, capsys):
+    env_path = module_copy / ".env"
+    env_text = env_path.read_text(encoding="utf-8")
+    env_path.write_text(env_text.replace("DOWNLOAD_FORMATS=ttl,rdf,jsonld,nt", "DOWNLOAD_FORMATS="), encoding="utf-8")
+    assert render(module_copy, "--version", "0.5.7") == 0
+    assert "no artifact tree" not in capsys.readouterr().err
+
+
+def test_no_artifact_tree_warning_once_the_tree_exists(module_copy: Path, capsys):
+    pin_dir = module_copy / "website" / "static" / "v0.5.7" / "ont"
+    pin_dir.mkdir(parents=True)
+    (pin_dir / "ont.ttl").write_text("", encoding="utf-8")
+    assert render(module_copy, "--version", "0.5.7") == 0
+    assert "no artifact tree" not in capsys.readouterr().err
+
+
 # the reference MDX
 
 

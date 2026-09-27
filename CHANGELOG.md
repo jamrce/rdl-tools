@@ -4,6 +4,8 @@ Notable changes to `rdl-tools`. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+- `rdl-tools render-site-data` warns on stderr when `website/static/v{version}/ont/` is missing and `DOWNLOAD_FORMATS` is non-empty: run `render-docs` first. Still writes, exits 0. `DOWNLOAD_FORMATS=` silences it. ([#11](https://github.com/jamrce/rdl-tools/issues/11))
+
 ## [0.1.0] - 2026-09-16
 
 - `rdl-tools init` — configure a module checkout taken from `rdl-module-template`: derive every `.env` value it can from the `.ttl` on disk, prompt only for what RDF cannot supply, activate CI and finish local setup. Refuses a folder that is not a module checkout.

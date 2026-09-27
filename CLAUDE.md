@@ -18,6 +18,12 @@ uv venv --python 3.13 && uv pip install -e ".[dev]"
 
 `mypy --strict`, `ruff check` and `ruff format --check` are hard gates. The coverage floor is 90%. [CONTRIBUTING.md](CONTRIBUTING.md) has the full pre-PR list, invariants and release steps — this section only adds what CONTRIBUTING doesn't already say.
 
+## Agent rules
+
+- **No git or gh command that writes.** Read-only commands only; the maintainer branches, commits and opens every PR. `.claude/settings.json` denies the common write commands, and its PreToolUse hook `.claude/hooks/block-git-writes.sh` blocks any git or gh subcommand outside its read-only allowlist, anywhere in a command, since the container can push with the host's forwarded git credentials. `gh api` passes only as a GET.
+- **Never run `gh auth`.** Only the maintainer logs `gh` in, with a read-only fine-grained token, as CONTRIBUTING.md's "Claude Code" section describes. The same hook blocks it.
+- **Resolve an issue through the `resolve-issue` skill.** Test first through the `test-driven-development` skill, in any context.
+
 ## Rules a change must not break
 
 - **Every generator lives here.** Adding one means adding a `commands/` module and listing it in `COMMANDS` — never a script elsewhere. (Same invariant as CONTRIBUTING.md; restated because it's the one most likely to be broken by habit.)
