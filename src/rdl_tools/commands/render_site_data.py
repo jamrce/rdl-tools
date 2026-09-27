@@ -479,14 +479,20 @@ class ModuleData:
         )
         return pick_literal(self.graph, self.ontology_iri, predicate)
 
+    def download_formats(self) -> list[str]:
+        """DOWNLOAD_FORMATS as a list. Unset means `ttl`; set but empty means none."""
+        return [f.strip() for f in self.env.get("DOWNLOAD_FORMATS", "ttl").split(",") if f.strip()]
+
+    def pin_dir(self, version: str) -> Path:
+        return self.module_dir / "website" / "static" / f"v{version}" / "ont"
+
     def downloads(self, version: str) -> list[Json]:
         """Only formats present on disk get a button, not every format DOWNLOAD_FORMATS asks for."""
-        formats = [f.strip() for f in self.env.get("DOWNLOAD_FORMATS", "ttl").split(",") if f.strip()]
-        pin_dir = self.module_dir / "website" / "static" / f"v{version}" / "ont"
+        pin_dir = self.pin_dir(version)
         base = f"{self.static_base_url}v{version}/ont"
         downloads = [
             {"label": DOWNLOAD_LABELS.get(fmt, fmt.upper()), "href": f"{base}/ont.{fmt}"}
-            for fmt in formats
+            for fmt in self.download_formats()
             if fmt in DOWNLOAD_LABELS and (pin_dir / f"ont.{fmt}").exists()
         ]
         # render-docs copies spec/*.generated.ttl into every artifact tree as ledger.ttl.
@@ -993,6 +999,12 @@ def run(args: argparse.Namespace) -> int:
     print_coverage(rows)
     for conflict in module.conflicts:
         print(f"warning: {conflict}", file=sys.stderr)
+    if module.download_formats() and not module.pin_dir(version).exists():
+        print(
+            f"warning: no artifact tree at website/static/v{version}/ont/ — the Home page will show no "
+            f"downloads. Run `rdl-tools render-docs --module-dir {args.module_dir} --version {version}` first.",
+            file=sys.stderr,
+        )
 
     # Written even under --check: the path is a CI artifact directory, not part of the tree.
     if args.coverage_report:

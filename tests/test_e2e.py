@@ -10,6 +10,7 @@ warm machine. Plain `venv` + `pip` is covered by ci.yml's wheel smoke test inste
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -178,6 +179,9 @@ def test_the_configured_tree_is_what_a_module_repo_should_look_like(installed_cl
     reference = (target / "website" / "docs" / "reference.mdx").read_text(encoding="utf-8")
     assert "### Widget {#Widget}" in reference
     assert "### partOf {#partOf}" in reference
+    # render-docs ran first, so the Home page gets a download row.
+    site_data = json.loads((target / "website" / "src" / "generated" / "0.1.0.json").read_text(encoding="utf-8"))
+    assert site_data["downloads"]
 
 
 def test_two_runs_produce_identical_committed_output(installed_cli: Path, tmp_path: Path):

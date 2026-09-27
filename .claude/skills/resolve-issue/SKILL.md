@@ -71,12 +71,12 @@ The `test-driven-development` skill's refactor step, then every command in CONTR
 
 ### 6. Docs
 
-- `CHANGELOG.md`: one entry under `## [Unreleased]`, written for a module maintainer, ending with the issue link, as CONTRIBUTING.md's "Resolving an issue" specifies.
+- `CHANGELOG.md`: one entry under `## [Unreleased]`, written for a module maintainer, ending with the issue link, as CONTRIBUTING.md's "Resolving an issue" specifies. Caveman style: 40 words at most, fragments allowed. State what changed and what the module maintainer must do, if anything. No before-and-after story, nothing the README already says. Keep every command, path, flag and value exact.
 - `README.md`: only if a user-visible command, flag or output changed.
 - An ADR, if step 2 said one is needed.
 - Docstrings and comments follow the Style section of `CLAUDE.md`.
 
-These are prose for other people: normal English, not caveman.
+The README, ADRs, docstrings and comments are normal English, not caveman.
 
 ### 7. Review — `/code-review`
 
