@@ -17,7 +17,7 @@ SETTINGS = PROJECT_ROOT / ".claude" / "settings.json"
 HOOK = PROJECT_ROOT / ".claude" / "hooks" / "block-git-writes.sh"
 
 
-def run_hook(command: str) -> subprocess.CompletedProcess[str]:
+def run_hook(command: str, description: str = "Run a command") -> subprocess.CompletedProcess[str]:
     # The shape Claude Code sends, since the hook scans the whole payload.
     payload = {
         "session_id": "s",
@@ -25,7 +25,7 @@ def run_hook(command: str) -> subprocess.CompletedProcess[str]:
         "cwd": "/workspace",
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
-        "tool_input": {"command": command, "description": "Run a command"},
+        "tool_input": {"command": command, "description": description},
     }
     return subprocess.run(
         [shutil.which("sh") or "sh", str(HOOK)],
@@ -56,6 +56,17 @@ def denied_prefixes() -> list[str]:
         "gh pr create --fill",
         "gh issue comment 11 --body hi",
         "gh auth token",
+        "git send-pack origin HEAD",
+        "git -c alias.p=push p origin",
+        "git update-ref refs/heads/main HEAD~1",
+        "git remote add x y",
+        "python -c \"import subprocess; subprocess.run(['git', 'push'])\"",
+        "gh api -X POST repos/o/r/issues -f title=x",
+        "gh api --method=DELETE repos/o/r",
+        "gh api -XPATCH repos/o/r",
+        "gh api repos/o/r/issues -f title=x",
+        "gh api repos/o/r/issues --input body.json",
+        "gh alias set p 'pr create'",
     ],
 )
 def test_a_write_command_is_blocked_wherever_it_appears(command: str):
@@ -73,8 +84,14 @@ def test_a_write_command_is_blocked_wherever_it_appears(command: str):
         "git diff main -- src",
         "gh issue view 11 --comments",
         "gh api repos/jamrce/rdl-tools/issues/11/dependencies/blocked_by",
+        "gh api --method GET repos/o/r --jq .name",
         "grep -rn push src",
         "cat .gitignore",
+        "git --version",
+        "git -C . status",
+        "git --no-pager log -1",
+        "which git",
+        "pip show gitpython",
     ],
 )
 def test_a_read_command_is_allowed(command: str):
@@ -87,6 +104,14 @@ def test_every_denied_prefix_is_blocked_inside_a_subshell(prefix: str):
     result = run_hook(f'sh -c "{prefix} x"')
     assert result.returncode == 2
     assert "Blocked:" in result.stderr
+
+
+def test_a_description_naming_a_write_does_not_block_a_read():
+    assert run_hook("git status", description="Check git branch state").returncode == 0
+
+
+def test_a_write_after_an_escaped_quote_in_the_command_is_still_blocked():
+    assert run_hook('echo "x" && git push').returncode == 2
 
 
 def test_the_hook_runs_before_every_bash_call():

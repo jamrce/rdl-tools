@@ -20,7 +20,7 @@ uv venv --python 3.13 && uv pip install -e ".[dev]"
 
 ## Agent rules
 
-- **No git or gh command that writes.** Read-only commands only; the maintainer branches, commits and opens every PR. `.claude/settings.json` denies the write commands, and its PreToolUse hook `.claude/hooks/block-git-writes.sh` blocks them anywhere in a command, since the container can push with the host's forwarded git credentials.
+- **No git or gh command that writes.** Read-only commands only; the maintainer branches, commits and opens every PR. `.claude/settings.json` denies the common write commands, and its PreToolUse hook `.claude/hooks/block-git-writes.sh` blocks any git or gh subcommand outside its read-only allowlist, anywhere in a command, since the container can push with the host's forwarded git credentials. `gh api` passes only as a GET.
 - **Never run `gh auth`.** Only the maintainer logs `gh` in, with a read-only fine-grained token, as CONTRIBUTING.md's "Claude Code" section describes. The same hook blocks it.
 - **Resolve an issue through the `resolve-issue` skill.** Test first through the `test-driven-development` skill, in any context.
 
