@@ -5,6 +5,7 @@ Notable changes to `rdl-tools`. The format follows [Keep a Changelog](https://ke
 ## [Unreleased]
 
 - `rdl-tools render-site-data` warns on stderr when `website/static/v{version}/ont/` is missing and `DOWNLOAD_FORMATS` is non-empty: run `render-docs` first. Still writes, exits 0. `DOWNLOAD_FORMATS=` silences it. ([#11](https://github.com/jamrce/rdl-tools/issues/11))
+- End-to-end suite now asserts on generated `{version}.json` IRIs and `releases.json` contents after full run. No behaviour change. ([#15](https://github.com/jamrce/rdl-tools/issues/15))
 
 ## [0.1.0] - 2026-09-16
 

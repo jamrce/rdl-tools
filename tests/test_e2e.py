@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from rdflib import OWL, Graph, URIRef
 
 FIXTURE_ONTOLOGY = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -150,6 +151,56 @@ def configure_and_generate(installed_cli: Path, target: Path) -> None:
     cli(installed_cli, "render-site-data", "--module-dir", ".", "--version", "0.1.0", cwd=target)
     cli(installed_cli, "render-site-data", "--module-dir", ".", "--check", cwd=target)
     cli(installed_cli, "expand-pins", "--module-dir", ".", cwd=target)
+
+
+@pytest.fixture(scope="module")
+def _generated_tree(_clean_install: Path | str, tmp_path_factory: pytest.TempPathFactory) -> Path | str:
+    """One configured-and-generated checkout shared by the tests that only read it, or why there is none."""
+    if isinstance(_clean_install, str):
+        return _clean_install
+    target = tmp_path_factory.mktemp("generated") / "e2e"
+    configure_and_generate(_clean_install, target)
+    return target
+
+
+@pytest.fixture
+def generated_tree(_generated_tree: Path | str) -> Path:
+    if isinstance(_generated_tree, str):
+        pytest.skip(_generated_tree)
+    return _generated_tree
+
+
+def test_generated_files_carry_ontology_iris_on_the_url_contract(generated_tree: Path):
+    payload = json.loads((generated_tree / "website" / "src" / "generated" / "0.1.0.json").read_text(encoding="utf-8"))
+    ontology = payload["ontology"]
+    iri, version_iri, namespace = ontology["iri"], ontology["versionIri"], ontology["namespace"]["uri"]
+
+    for document_iri in (iri, version_iri):
+        assert document_iri.startswith("https://"), document_iri
+        assert not document_iri.endswith("/"), document_iri
+    assert namespace.startswith("https://"), namespace
+    assert namespace.endswith("/"), namespace
+
+    assert version_iri == iri.replace("/v0/ont", "/v0.1.0/ont")
+    # versionIri comes from .env; the pin's owl:versionIRI comes from the .ttl. They must agree.
+    pin = Graph().parse(generated_tree / "website" / "static" / "v0.1.0" / "ont" / "ont.ttl", format="turtle")
+    assert [str(o) for o in pin.objects(URIRef(iri), OWL.versionIRI)] == [version_iri]
+
+
+def test_generated_files_list_exactly_the_module_releases(generated_tree: Path):
+    releases = json.loads(
+        (generated_tree / "website" / "src" / "generated" / "releases.json").read_text(encoding="utf-8")
+    )
+    changelogs = {path.stem[1:] for path in (generated_tree / "changelog").glob("v*.md")}
+    pins = {
+        child.name[1:]
+        for child in (generated_tree / "website" / "static").iterdir()
+        if child.is_dir() and child.name != "v0"
+    }
+
+    ids = [release["id"] for release in releases]
+    assert ids == ["0.1.0"]
+    assert set(ids) == changelogs | pins
 
 
 def test_the_configured_tree_is_what_a_module_repo_should_look_like(installed_cli: Path, tmp_path: Path):
