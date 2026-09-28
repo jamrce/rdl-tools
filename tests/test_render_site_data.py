@@ -413,6 +413,29 @@ def test_term_order_in_the_page_matches_the_rail(module: ModuleData):
     assert positions == sorted(positions)
 
 
+def test_abstract_is_its_own_block_between_the_reference_header_and_the_intro(module: ModuleData):
+    assert "<ReferenceHeader />\n\n<Abstract />\n\n<Intro />\n" in reference_mdx_text(module, "0.5.7")
+
+
+def test_abstract_is_imported_with_the_other_rdl_components(module: ModuleData):
+    import_line = (
+        "import {ReferenceHeader, Abstract, MetadataSection, TermCard, TermBody} from '@site/src/components/rdl';"
+    )
+    assert import_line in reference_mdx_text(module, "0.5.7").splitlines()
+
+
+def test_abstract_is_emitted_when_the_module_has_no_description(module: ModuleData):
+    module.description = ""
+    assert "<Abstract />" in reference_mdx_text(module, "0.5.7")
+
+
+def test_the_page_body_never_inlines_the_description(module: ModuleData):
+    module.description = "A distinctive abstract sentence."
+    body = reference_mdx_text(module, "0.5.7").split("---", 2)[2]
+    assert "<Abstract />" in body
+    assert "distinctive abstract" not in body
+
+
 def test_markdown_specials_in_a_label_are_escaped():
     assert escape_mdx_heading("a*b_c[d]") == r"a\*b\_c\[d\]"
 

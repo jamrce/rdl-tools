@@ -88,4 +88,4 @@ Print, then stop:
 
 1. **Proposed PR title**: a Conventional Commit, `<type>: <summary>` in the imperative, with `type` one of `feat`, `fix`, `docs`, `test`, `refactor`, `build`, `ci`, `chore`.
 2. **Proposed PR body**: [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md) filled in — `Fixes #N`, the Changes list, and each checklist box ticked only if it is true.
-3. **Suggested commits**: the changed files grouped into commits in order — tests first, then the implementation, then docs — each with a message, so the history shows the tests came first.
+3. **Suggested commit**: one commit of every changed file, with the PR title as its message. The squash merge collapses the branch to one commit anyway. Step 3's red output, not the commit history, is the record that the tests came first.
