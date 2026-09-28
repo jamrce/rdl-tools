@@ -9,10 +9,11 @@ from typing import Any
 
 import pytest
 from rdflib import OWL, Graph
+from rdflib.compare import isomorphic
 
 from rdl_tools import discover, envwrite
 from rdl_tools.cli import main
-from rdl_tools.commands.init import InitError, run_init
+from rdl_tools.commands.init import MANIFEST_NAME, NO_INPUT, InitError, run_init
 
 PREFIXES = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -275,6 +276,76 @@ def test_rerun_is_noop_without_force(module_dir: Path):
     assert env_before == (module_dir / ".env").read_text(encoding="utf-8")
 
 
+def test_force_rerun_after_a_root_import_succeeds(module_dir: Path):
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    run(module_dir, repo_owner="owner")
+    report = run(module_dir, repo_owner="owner", force=True)
+    assert report["spec_version"] == "0.1.0"
+
+
+def test_force_rerun_does_not_duplicate_shapes(module_dir: Path):
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    (module_dir / "ex-shapes.ttl").write_text(SHAPES_TTL, encoding="utf-8")
+    run(module_dir, repo_owner="owner")
+    (module_dir / "ex.ttl").unlink()  # isolates the shapes merge from the ontology duplicate
+    run(module_dir, repo_owner="owner", force=True)
+
+    written = Graph().parse(module_dir / "spec" / "ex.shacl.ttl", format="turtle")
+    source = Graph().parse(module_dir / "ex-shapes.shacl.ttl", format="turtle")
+    assert isomorphic(written, source)
+
+
+def test_force_rerun_keeps_a_version_known_only_from_the_filename(module_dir: Path):
+    filename_versioned = (
+        PREFIXES
+        + """
+<https://w3id.org/testauth/ex/v0/ont> a owl:Ontology ;
+    dcterms:title "Example Module" ;
+    vann:preferredNamespaceUri "https://w3id.org/testauth/ex/v0/ont/" .
+"""
+    )
+    (module_dir / "ex-0.1.0.ttl").write_text(filename_versioned, encoding="utf-8")
+    run(module_dir, repo_owner="owner")
+    report = run(module_dir, repo_owner="owner", force=True)
+    assert report["spec_version"] == "0.1.0"
+
+
+def test_force_rerun_does_not_duplicate_shapes_from_two_files(module_dir: Path):
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    (module_dir / "a.shacl.ttl").write_text(SHAPES_TTL, encoding="utf-8")
+    (module_dir / "b.shacl.ttl").write_text(
+        PREFIXES + "\nex:OtherShape a sh:NodeShape ;\n    sh:targetClass ex:Thing ;\n"
+        "    sh:property [ sh:path rdfs:comment ; sh:maxCount 1 ] .\n",
+        encoding="utf-8",
+    )
+    run(module_dir, repo_owner="owner")
+    run(module_dir, repo_owner="owner", force=True)
+
+    written = Graph().parse(module_dir / "spec" / "ex.shacl.ttl", format="turtle")
+    sources = Graph().parse(module_dir / "a.shacl.ttl", format="turtle")
+    sources.parse(module_dir / "b.shacl.ttl", format="turtle")
+    assert isomorphic(written, sources)
+
+
+def test_duplicate_version_error_names_each_file_by_relative_path(module_dir: Path):
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    run(module_dir, repo_owner="owner")
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0", extra="ex:Other a owl:Class ."), encoding="utf-8")
+    with pytest.raises(InitError) as raised:
+        run(module_dir, repo_owner="owner", force=True)
+    assert f"0.1.0: {Path('spec', 'ex.ttl')}, ex.ttl" in str(raised.value)
+
+
+def test_duplicate_version_error_names_a_from_file_by_its_full_path(module_dir: Path, tmp_path: Path):
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    from_dir = tmp_path / "history"
+    from_dir.mkdir()
+    (from_dir / "ex-0.1.0.ttl").write_text(ontology_ttl("0.1.0", extra="ex:Other a owl:Class ."), encoding="utf-8")
+    with pytest.raises(InitError) as raised:
+        run(module_dir, from_dir=from_dir, repo_owner="owner")
+    assert str(from_dir / "ex-0.1.0.ttl") in str(raised.value)
+
+
 def test_clean_removes_generated_files_only(module_dir: Path):
     (module_dir / "keep-me.txt").write_text("hand-written", encoding="utf-8")
     (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
@@ -330,6 +401,41 @@ def test_declining_the_versions_writes_nothing(module_dir: Path):
     assert not (module_dir / ".env").exists()
 
 
+def _template_checkout(module_dir: Path) -> None:
+    """An ontology, a misnamed shapes file and the template's placeholder files."""
+    (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0"), encoding="utf-8")
+    (module_dir / "ex-shapes.ttl").write_text(SHAPES_TTL, encoding="utf-8")
+    (module_dir / "spec" / ".gitkeep").touch()
+    (module_dir / "changelog" / ".gitkeep").touch()
+
+
+@pytest.mark.parametrize("declined", ["Confirm these versions", "Proceed"])
+def test_declining_leaves_every_rename_and_deletion_undone(module_dir: Path, declined: str):
+    _template_checkout(module_dir)
+    with pytest.raises(InitError):
+        run_init(
+            module_dir,
+            assume_yes=False,
+            skip_install=True,
+            repo_owner="owner",
+            prompt=lambda question: "n" if question.startswith(declined) else "y",
+            out=lambda *a: None,
+        )
+    assert (module_dir / "ex-shapes.ttl").exists()
+    assert (module_dir / "github").is_dir()
+    assert (module_dir / "spec" / ".gitkeep").exists()
+    assert (module_dir / "changelog" / ".gitkeep").exists()
+
+
+def test_plan_lists_every_rename_and_deletion(module_dir: Path):
+    _template_checkout(module_dir)
+    plan = run(module_dir, repo_owner="owner")["_stdout"].split("Plan:", 1)[1]
+    assert "  rename ex-shapes.ttl -> ex-shapes.shacl.ttl\n" in plan
+    assert "  rename github/ -> .github/\n" in plan
+    assert f"  delete {Path('spec', '.gitkeep')}\n" in plan
+    assert f"  delete {Path('changelog', '.gitkeep')}\n" in plan
+
+
 # the CLI surface
 
 
@@ -353,6 +459,16 @@ def test_the_cli_reports_an_init_error_as_exit_1(module_dir: Path, capsys):
     )
     assert main(["init", "--module-dir", str(module_dir), "--yes", "--skip-install"]) == 1
     assert "rdl-tools init:" in capsys.readouterr().err
+
+
+def test_clean_is_described_by_what_it_removes(capsys, monkeypatch):
+    monkeypatch.setenv("COLUMNS", "200")  # keeps argparse from wrapping the manifest name
+    with pytest.raises(SystemExit):
+        main(["init", "--help"])
+    help_text = capsys.readouterr().out
+    assert MANIFEST_NAME in help_text
+    assert MANIFEST_NAME in NO_INPUT
+    assert "undo" not in NO_INPUT
 
 
 # envwrite
