@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from rdflib import BNode, Graph, Literal, URIRef
+from rdflib import RDFS, BNode, Graph, Literal, URIRef
 from rdflib.collection import Collection
 from rdflib.namespace import SH, SKOS
 
@@ -24,6 +24,8 @@ from rdl_tools.commands.render_site_data import (
     diff_bullets,
     escape_mdx_heading,
     parse_changelog,
+    pick_literal,
+    pick_literals,
     reference_mdx_text,
 )
 
@@ -428,6 +430,90 @@ def test_front_matter_survives_a_multiline_description(module: ModuleData):
     assert 'title: "A \\"quoted\\": title v0.5.7"' in front_matter
     assert 'description: "First paragraph: with a colon, wrapped over lines."' in front_matter
     assert "Second paragraph" not in front_matter
+
+
+MULTILINE_DESCRIPTION = (
+    "A meta-ontology for modelling ontologies themselves\n"
+    "as 4D extensional things.\n"
+    "\n"
+    "Terms are extensional: two with the same members are the same term."
+)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        # Text on the line after the opening quotes, as `format` writes it.
+        "\n    A meta-ontology for modelling ontologies themselves\n    as 4D extensional things.\n\n"
+        "    Terms are extensional: two with the same members are the same term.\n    ",
+        # Text straight after the opening quotes.
+        "A meta-ontology for modelling ontologies themselves\n    as 4D extensional things.\n\n"
+        "    Terms are extensional: two with the same members are the same term.",
+        # A blank line that still carries the source indentation.
+        "\n    A meta-ontology for modelling ontologies themselves\n    as 4D extensional things.\n    \n"
+        "    Terms are extensional: two with the same members are the same term.\n    ",
+    ],
+    ids=["next-line", "same-line", "indented-blank-line"],
+)
+def test_a_triple_quoted_literal_loses_its_source_indentation_and_edge_blank_lines(source: str):
+    graph = Graph()
+    graph.add((term("Extent"), SKOS.definition, Literal(source, lang="en")))
+    assert pick_literal(graph, term("Extent"), SKOS.definition) == MULTILINE_DESCRIPTION
+
+
+def test_a_crlf_literal_reaches_the_json_with_lf_only():
+    graph = Graph()
+    graph.add((term("Extent"), SKOS.definition, Literal("\r\n    one\r\n    two\r\n    ")))
+    assert pick_literal(graph, term("Extent"), SKOS.definition) == "one\ntwo"
+
+
+def test_an_example_keeps_its_relative_indentation():
+    graph = Graph()
+    example = "\n    ex:a a ex:Widget ;\n        ex:partOf ex:b .\n    "
+    graph.add((term("Extent"), SKOS.example, Literal(example)))
+    assert pick_literals(graph, term("Extent"), SKOS.example) == ["ex:a a ex:Widget ;\n    ex:partOf ex:b ."]
+
+
+def test_literals_differing_only_in_source_indentation_are_one_entry():
+    graph = Graph()
+    graph.add((term("Extent"), SKOS.scopeNote, Literal("one\n  two")))
+    graph.add((term("Extent"), SKOS.scopeNote, Literal("\n    one\n    two\n    ")))
+    assert pick_literals(graph, term("Extent"), SKOS.scopeNote) == ["one\ntwo"]
+
+
+def multiline_module(module_dir: Path) -> ModuleData:
+    """The fixture with a two-line title and the issue's triple-quoted description."""
+    ttl = module_dir / "spec" / "sample-ont.ttl"
+    text = ttl.read_text(encoding="utf-8")
+    text = text.replace('"Sample Top"@en', '"""\n    Sample\n    Top\n    """@en')
+    text = text.replace(
+        '"A top level ontology grounded in Extensional Four-Dimensionalism."@en',
+        '"""\n    A meta-ontology for modelling ontologies themselves\n    as 4D extensional things.\n\n'
+        '    Terms are extensional: two with the same members are the same term.\n    """@en',
+    )
+    ttl.write_text(text, encoding="utf-8")
+    return ModuleData(module_dir, "0.5.7")
+
+
+def test_site_title_and_tagline_are_single_line(module_copy: Path):
+    site = multiline_module(module_copy).site_payload("0.5.7")
+    assert site["title"] == "Sample Top"
+    assert site["tagline"] == (
+        "A meta-ontology for modelling ontologies themselves as 4D extensional things. "
+        "Terms are extensional: two with the same members are the same term."
+    )
+
+
+def test_ontology_title_is_single_line_and_description_keeps_paragraph_breaks(module_copy: Path):
+    ontology = multiline_module(module_copy).version_payload("0.5.7", None, True, [])["ontology"]
+    assert ontology["title"] == "Sample Top"
+    assert ontology["description"] == MULTILINE_DESCRIPTION
+
+
+def test_a_multiline_rdfs_label_stays_one_heading(module: ModuleData):
+    module.term_label_source = "rdfsLabel"
+    module.graph.set((term("FourPlaceTuple"), RDFS.label, Literal("Four Place\n    Tuple")))
+    assert "### Four Place Tuple {#FourPlaceTuple}" in reference_mdx_text(module, "0.5.7")
 
 
 def test_a_module_with_no_description_omits_the_meta_line(module: ModuleData):

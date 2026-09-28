@@ -23,6 +23,7 @@ It is written even under `--check`: the target is a CI artifact directory, not p
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import re
 import sys
@@ -125,6 +126,20 @@ def add_parser(parser: argparse.ArgumentParser) -> None:
 # graph reading
 
 
+def clean_literal(text: str) -> str:
+    """A literal without the indentation and edge blank lines its Turtle source gave it.
+
+    Line breaks survive. Relative indentation survives only when the text starts on the line after
+    the opening quotes; the first line is always stripped. Tabs expand to 8 spaces. See ADR-005.
+    """
+    return inspect.cleandoc(text.replace("\r\n", "\n"))
+
+
+def single_line(text: str) -> str:
+    """Every whitespace run as one space, for a destination that cannot hold a line break."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def pick_literal(graph: Graph, subject: Node, predicate: Node) -> str | None:
     """One literal for a predicate, preferring @en, then no language, then whatever sorts first."""
     values = [o for o in graph.objects(subject, predicate) if isinstance(o, Literal)]
@@ -133,8 +148,8 @@ def pick_literal(graph: Graph, subject: Node, predicate: Node) -> str | None:
     for wanted in ("en", None):
         for value in sorted(values, key=str):
             if (value.language or None) == wanted:
-                return str(value)
-    return str(sorted(values, key=str)[0])
+                return clean_literal(str(value))
+    return clean_literal(str(sorted(values, key=str)[0]))
 
 
 def pick_literals(graph: Graph, subject: Node, predicate: Node) -> list[str]:
@@ -144,7 +159,7 @@ def pick_literals(graph: Graph, subject: Node, predicate: Node) -> list[str]:
         return []
     english = [v for v in values if (v.language or None) == "en"]
     chosen = english or values
-    return sorted({str(v) for v in chosen})
+    return sorted({clean_literal(str(v)) for v in chosen})
 
 
 def group(path: str) -> str:
@@ -185,7 +200,7 @@ class ModuleData:
             raise SystemExit(2)
         self.ontology_iri: URIRef = ontology
 
-        self.title = (
+        self.title = single_line(
             pick_literal(self.graph, ontology, DCTERMS.title) or pick_literal(self.graph, ontology, RDFS.label) or ""
         )
         self.description = (
@@ -261,7 +276,7 @@ class ModuleData:
     def label_for(self, iri: URIRef) -> str:
         name = local_name(str(iri))
         if self.term_label_source == "rdfsLabel" and self.is_internal(str(iri)):
-            return pick_literal(self.graph, iri, RDFS.label) or name
+            return single_line(pick_literal(self.graph, iri, RDFS.label) or name)
         return name
 
     def ref(self, iri: URIRef, via: URIRef | None = None) -> Json:
@@ -535,7 +550,7 @@ class ModuleData:
         return {
             "moduleSlug": self.env.get("MODULE_SLUG", ""),
             "title": self.title,
-            "tagline": self.description,
+            "tagline": single_line(self.description),
             "brandSubtitle": self.env.get("BRAND_SUBTITLE", "Reference Data Library"),
             "majorIri": self.major_iri,
             "pinIriPattern": self.major_iri.replace("/v0/ont", "/v{version}/ont"),
@@ -715,14 +730,12 @@ def escape_mdx_heading(text: str) -> str:
 def yaml_scalar(text: str) -> str:
     """A double-quoted YAML scalar: a title out of RDF can hold colons, quotes, `#` or newlines."""
     escaped = text.replace("\\", "\\\\").replace('"', '\\"')
-    escaped = re.sub(r"\s+", " ", escaped).strip()
-    return f'"{escaped}"'
+    return f'"{single_line(escaped)}"'
 
 
 def meta_description(text: str) -> str:
     """The first paragraph only: `description` becomes the page's meta tag."""
-    first = re.split(r"\n\s*\n", text.strip(), maxsplit=1)[0]
-    return re.sub(r"\s+", " ", first).strip()
+    return single_line(re.split(r"\n\s*\n", text.strip(), maxsplit=1)[0])
 
 
 def reference_mdx_text(module: ModuleData, version: str) -> str:
