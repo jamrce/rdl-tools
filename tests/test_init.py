@@ -180,6 +180,21 @@ def test_imported_pins_chain_prior_version_links(module_dir: Path, tmp_path: Pat
     assert str(prior) == "https://w3id.org/testauth/ex/v0.1.0/ont"
 
 
+def test_render_docs_chains_prior_version_to_an_init_imported_pin(module_dir: Path, tmp_path: Path):
+    # A derived module: the ontology IRI sits under an upstream authority, the pins under this one.
+    from_dir = tmp_path / "history"
+    from_dir.mkdir()
+    derived = ontology_ttl("0.1.0").replace("https://w3id.org/testauth/ex/", "https://example.org/ex/")
+    (from_dir / "ex-0.1.0.ttl").write_text(derived, encoding="utf-8")
+    run(module_dir, from_dir=from_dir, repo_owner="owner", w3id_authority="sample-org")
+
+    assert main(["render-docs", "--module-dir", str(module_dir), "--version", "0.2.0"]) == 0
+    graph = Graph()
+    graph.parse(module_dir / "website" / "static" / "v0.2.0" / "ont" / "ont.ttl", format="turtle")
+    prior = next(graph.objects(None, OWL.priorVersion), None)
+    assert str(prior) == "https://w3id.org/sample-org/ex/v0.1.0/ont"
+
+
 # refusals
 
 

@@ -66,6 +66,8 @@ Same `spec/` and `.env`, byte-identical committed output. Asserted end to end, f
 
 Published bytes are immutable: `format` refuses to rewrite anything under `website/static/`, and `render-docs` refuses to overwrite an existing pin without `--force`, because a `w3id.org` URL has already served those bytes.
 
+Every pin IRI is `https://w3id.org/{W3ID_AUTHORITY}/{MODULE_SLUG}/v{version}/ont`, built from `.env` whatever the ontology IRI is. `init`, `render-docs` and `render-site-data` all use this one rule, and `render-docs` and `render-site-data` exit 2 when either key is missing or empty.
+
 ## Contributing
 
 Setup, the pre-PR checks and the release process are in [CONTRIBUTING.md](CONTRIBUTING.md). Security boundaries and how to report a vulnerability are in [SECURITY.md](SECURITY.md).
