@@ -9,6 +9,7 @@ Notable changes to `rdl-tools`. The format follows [Keep a Changelog](https://ke
 - `rdl-tools render-site-data` warns on stderr when `website/static/v{version}/ont/` is missing and `DOWNLOAD_FORMATS` is non-empty: run `render-docs` first. Still writes, exits 0. `DOWNLOAD_FORMATS=` silences it. ([#11](https://github.com/jamrce/rdl-tools/issues/11))
 - `rdl-tools render-site-data` strips source indentation and edge blank lines from every literal; line breaks kept. `title`, `tagline`, `ontology.title` and `rdfs:label` headings collapse to one line. Re-run `render-site-data` to update generated JSON. ([#9](https://github.com/jamrce/rdl-tools/issues/9))
 - End-to-end suite now asserts on generated `{version}.json` IRIs and `releases.json` contents after full run. No behaviour change. ([#15](https://github.com/jamrce/rdl-tools/issues/15))
+- `rdl-tools render-site-data --draft-changelog` no longer lists existing shapes as `Added a SHACL constraint on …` when previous pin holds no shapes, as every `render-docs` pin does. Delete false bullets from existing unpublished `changelog/v*.md` drafts. ([#21](https://github.com/jamrce/rdl-tools/issues/21))
 
 ## [0.1.0] - 2026-09-16
 

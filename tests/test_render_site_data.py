@@ -782,6 +782,30 @@ def test_a_draft_against_a_previous_pin_lists_the_delta(module_copy: Path):
     assert "Added class `IntermittentTimespan`." in draft
 
 
+def test_a_draft_against_a_real_pin_reports_no_shape_constraint_as_added(module_copy: Path):
+    assert main(["render-docs", "--module-dir", str(module_copy), "--version", "0.5.6"]) == 0
+    (module_copy / "website" / "versions.json").write_text('["0.5.6"]', encoding="utf-8")
+
+    assert render(module_copy, "--version", "0.5.7", "--draft-changelog") == 0
+    draft = (module_copy / "changelog" / "v0.5.7.md").read_text(encoding="utf-8")
+    assert "SHACL constraint" not in draft
+
+
+def test_a_draft_against_a_pin_carrying_shapes_reports_an_added_constraint(module_copy: Path):
+    pin_dir = module_copy / "website" / "static" / "v0.5.6" / "ont"
+    pin_dir.mkdir(parents=True)
+    previous = ModuleData(module_copy, "0.5.7").merged
+    for shape in list(previous.subjects(SH.targetClass, term("Extent"))):
+        for property_shape in list(previous.objects(shape, SH.property)):
+            previous.remove((shape, SH.property, property_shape))
+    previous.serialize(destination=str(pin_dir / "ont.ttl"), format="turtle", encoding="utf-8")
+    (module_copy / "website" / "versions.json").write_text('["0.5.6"]', encoding="utf-8")
+
+    assert render(module_copy, "--version", "0.5.7", "--draft-changelog") == 0
+    draft = (module_copy / "changelog" / "v0.5.7.md").read_text(encoding="utf-8")
+    assert "Added a SHACL constraint on `Extent.connected`." in draft
+
+
 # the accent ramp
 
 

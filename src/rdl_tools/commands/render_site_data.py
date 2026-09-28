@@ -1035,7 +1035,8 @@ def draft_changelog(module: ModuleData, version: str) -> None:
         if previous_ttl.exists():
             previous = Graph()
             previous.parse(previous_ttl, format="turtle")
-            bullets = diff_bullets(previous, module.merged, module)
+            has_shapes = (None, SH.targetClass, None) in previous
+            bullets = diff_bullets(previous, module.merged if has_shapes else module.graph, module)
             print(f"Diffed against {previous_ttl.relative_to(module.module_dir)}: {len(bullets)} bullet(s)")
     else:
         print("No previous pin found — drafting an initial-release note.")
