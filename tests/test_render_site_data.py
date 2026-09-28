@@ -7,6 +7,7 @@ flags, and that the emitted MDX is byte-stable across reruns.
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ from rdflib.collection import Collection
 from rdflib.namespace import SH, SKOS
 
 from rdl_tools.cli import main
-from rdl_tools.colour import accent_ramp, srgb_to_oklch
+from rdl_tools.colour import accent_ramp, oklch_css, srgb_to_oklch
 from rdl_tools.commands.render_site_data import (
     ModuleData,
     collect_releases,
@@ -645,6 +646,34 @@ def test_accent_colour_emits_a_generated_stylesheet_and_removing_it_deletes_it(m
     )
     assert render(module_copy, "--version", "0.5.7") == 0
     assert not accent_path.exists()
+
+
+def accent_stylesheet(module_copy: Path, accent: str) -> str:
+    env_path = module_copy / ".env"
+    env_path.write_text(
+        env_path.read_text(encoding="utf-8").replace("ACCENT_COLOR=", f"ACCENT_COLOR={accent}"), encoding="utf-8"
+    )
+    assert render(module_copy, "--version", "0.5.7") == 0
+    return (module_copy / "website" / "src" / "css" / "accent.generated.css").read_text(encoding="utf-8")
+
+
+def test_accent_stylesheet_declares_only_the_nine_ramp_stops(module_copy: Path):
+    css = accent_stylesheet(module_copy, "#a33333")
+    ramp = accent_ramp("#a33333")
+    declared = dict(re.findall(r"(--[\w-]+):\s*([^;]+);", css))
+    assert declared == {f"--rdl-accent-{stop}": oklch_css(ramp[stop]) for stop in range(100, 1000, 100)}
+
+
+def test_accent_stylesheet_is_one_root_block(module_copy: Path):
+    css = re.sub(r"/\*.*?\*/", "", accent_stylesheet(module_copy, "#a33333"), flags=re.DOTALL)
+    assert [selector.strip() for selector in re.findall(r"([^{}]+)\{", css)] == [":root"]
+
+
+def test_accent_stylesheet_banner_names_custom_css_as_the_fallback(module_copy: Path):
+    banner = re.match(r"/\*.*?\*/", accent_stylesheet(module_copy, "#a33333"), flags=re.DOTALL)
+    assert banner is not None
+    assert "custom.css" in banner.group()
+    assert "rdl.css" not in banner.group()
 
 
 def test_check_writes_nothing_but_still_writes_the_coverage_report(module_copy: Path, tmp_path: Path):

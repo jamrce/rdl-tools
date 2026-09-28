@@ -4,6 +4,7 @@ Notable changes to `rdl-tools`. The format follows [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+- `rdl-tools render-site-data` writes only `--rdl-accent-{100..900}` to `accent.generated.css`: no aliases, no `--ifm-color-primary-*`, no dark block. Module forked from older template whose `custom.css` lacks aliases or dark `color-mix` tint: copy them from current template. ([#8](https://github.com/jamrce/rdl-tools/issues/8))
 - `rdl-tools render-site-data` emits `<Abstract />` in `reference.mdx`, between `<ReferenceHeader />` and `<Intro />`. Before bumping rdl-tools, add `Abstract` export to `@site/src/components/rdl` from rdl-module-template, else site build fails. Re-run `render-site-data`, else `--check` fails. ([#10](https://github.com/jamrce/rdl-tools/issues/10))
 - `rdl-tools render-site-data` warns on stderr when `website/static/v{version}/ont/` is missing and `DOWNLOAD_FORMATS` is non-empty: run `render-docs` first. Still writes, exits 0. `DOWNLOAD_FORMATS=` silences it. ([#11](https://github.com/jamrce/rdl-tools/issues/11))
 - `rdl-tools render-site-data` strips source indentation and edge blank lines from every literal; line breaks kept. `title`, `tagline`, `ontology.title` and `rdfs:label` headings collapse to one line. Re-run `render-site-data` to update generated JSON. ([#9](https://github.com/jamrce/rdl-tools/issues/9))
