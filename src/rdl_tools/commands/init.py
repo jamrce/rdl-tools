@@ -17,7 +17,7 @@ from rdflib import DCTERMS, OWL, RDF, Graph, Literal, URIRef
 from rdflib.compare import isomorphic
 
 from .. import bootstrap, discover, envwrite, skeleton, spec
-from ..spec import local_name, version_key, write_generated
+from ..spec import local_name, shown, version_key, write_generated
 from . import render_docs, render_site_data
 
 MANIFEST_NAME = ".rdl-tools-manifest.json"
@@ -100,11 +100,6 @@ def refuse_unsupported(candidates: list[discover.Candidate]) -> None:
             file=sys.stderr,
         )
     raise SystemExit(2)
-
-
-def shown(path: Path, module_dir: Path) -> str:
-    """`path` relative to `module_dir`, or in full when it lies outside, as a `--from` file does."""
-    return str(path.relative_to(module_dir)) if path.is_relative_to(module_dir) else str(path)
 
 
 def drop_imported_copies(candidates: list[discover.Candidate]) -> list[discover.Candidate]:

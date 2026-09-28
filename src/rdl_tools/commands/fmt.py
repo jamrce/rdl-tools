@@ -19,6 +19,7 @@ from rdflib import Graph
 from ..spec import (
     classify_spec_file,
     ontology_files,
+    parse_turtle,
     require_supported_spec_files,
     supported_names_hint,
     write_generated,
@@ -41,9 +42,7 @@ def is_published_pin(path: Path) -> bool:
 
 def normalize_turtle(input_path: Path) -> str:
     """The canonical Turtle for a file. Idempotent: normalize(normalize(x)) == normalize(x)."""
-    graph = Graph()
-    graph.parse(input_path, format="turtle")
-    return graph.serialize(format="turtle")
+    return parse_turtle(Graph(), input_path, Path()).serialize(format="turtle")
 
 
 def targets(args: argparse.Namespace) -> list[Path] | None:
@@ -65,7 +64,7 @@ def targets(args: argparse.Namespace) -> list[Path] | None:
 
     spec_dir = Path(args.spec_dir)
     if not spec_dir.is_dir():
-        print(f"{spec_dir} is not a directory.", file=sys.stderr)
+        print(f"{spec_dir} is not a directory. Run from the module root or pass --spec-dir.", file=sys.stderr)
         return None
     require_supported_spec_files(spec_dir)
     found = ontology_files(spec_dir)

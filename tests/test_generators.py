@@ -113,6 +113,8 @@ ENV = "MODULE_SLUG=ex\nW3ID_AUTHORITY=testauth\n"
 def _module(tmp_path: Path, ontology: str = ONTOLOGY, env: str = ENV) -> Path:
     module_dir = tmp_path / "ex"
     (module_dir / "spec").mkdir(parents=True)
+    (module_dir / "website").mkdir()
+    (module_dir / "requirements.txt").write_text("rdl-tools==0.1.0\n", encoding="utf-8")
     (module_dir / "spec" / "ex.ttl").write_text(ontology, encoding="utf-8")
     (module_dir / ".env").write_text(env, encoding="utf-8")
     return module_dir

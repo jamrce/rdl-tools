@@ -23,7 +23,7 @@ from pathlib import Path
 from rdflib import RDF, Graph
 from rdflib.namespace import SH
 
-from ..spec import merge_ontology, ontology_files, require_supported_spec_files, shape_files
+from ..spec import merge_ontology, ontology_files, parse_turtle, require_supported_spec_files, shape_files
 
 
 def add_parser(parser: argparse.ArgumentParser) -> None:
@@ -43,8 +43,7 @@ def shape_asserting_files(paths: list[Path]) -> list[Path]:
     """Ontology files that declare an sh:NodeShape — misplaced shapes (gate 2)."""
     offenders = []
     for path in paths:
-        graph = Graph()
-        graph.parse(path, format="turtle")
+        graph = parse_turtle(Graph(), path, Path())
         if next(graph.subjects(RDF.type, SH.NodeShape), None) is not None:
             offenders.append(path)
     return offenders
@@ -53,7 +52,7 @@ def shape_asserting_files(paths: list[Path]) -> list[Path]:
 def run(args: argparse.Namespace) -> int:
     spec_dir = Path(args.spec_dir)
     if not spec_dir.is_dir():
-        print(f"{spec_dir} is not a directory.", file=sys.stderr)
+        print(f"{spec_dir} is not a directory. Run from the module root or pass --spec-dir.", file=sys.stderr)
         return 2
 
     require_supported_spec_files(spec_dir)
@@ -84,7 +83,7 @@ def run(args: argparse.Namespace) -> int:
 
     shape_graph = Graph()
     for path in shapes_paths:
-        shape_graph.parse(path, format="turtle")
+        parse_turtle(shape_graph, path, Path())
 
     # Lazy: pyshacl pulls in owlrl and a SPARQL engine, which `--help` should not pay for.
     try:
