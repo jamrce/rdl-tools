@@ -28,7 +28,10 @@ FIXTURE_ONTOLOGY = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
 
 <https://w3id.org/testauth/e2e/v0/ont> a owl:Ontology ;
     dcterms:title "End To End Module" ;
-    dcterms:description "A module scaffolded, generated and built entirely from the published wheel." ;
+    dcterms:description \"\"\"
+        A module scaffolded, generated and built
+        entirely from the published wheel.
+        \"\"\" ;
     dcterms:license <https://spdx.org/licenses/MIT.html> ;
     dcterms:modified "2026-09-05" ;
     owl:versionInfo "0.1.0" ;
@@ -201,6 +204,12 @@ def test_generated_files_list_exactly_the_module_releases(generated_tree: Path):
     ids = [release["id"] for release in releases]
     assert ids == ["0.1.0"]
     assert set(ids) == changelogs | pins
+
+
+def test_site_title_and_tagline_are_single_line(generated_tree: Path):
+    site = json.loads((generated_tree / "website" / "src" / "generated" / "site.json").read_text(encoding="utf-8"))
+    assert site["title"] == "End To End Module"
+    assert site["tagline"] == "A module scaffolded, generated and built entirely from the published wheel."
 
 
 def test_the_configured_tree_is_what_a_module_repo_should_look_like(installed_cli: Path, tmp_path: Path):
