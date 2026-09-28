@@ -14,7 +14,8 @@ Outputs, all committed by a release so a published module builds without Python:
     website/docs/reference.mdx              the generated reference page — never hand-edited
     changelog/v{version}.md                 a draft, and only when the file is absent
 
-Hand-written prose lives in website/docs/_intro.mdx, which this command never writes.
+Hand-written prose lives in website/docs/_intro.mdx, which this command never writes. The abstract
+above it is the pin's own ontology description, rendered from {version}.json by `<Abstract />`.
 
 `--coverage-report <path>` writes the per-term annotation coverage as JSON to a path of its own.
 It is written even under `--check`: the target is a CI artifact directory, not part of the tree.
@@ -756,9 +757,11 @@ def reference_mdx_text(module: ModuleData, version: str) -> str:
         f"{{/* {GENERATED_BANNER} Hand-written prose belongs in _intro.mdx. */}}",
         "",
         "import Intro from './_intro.mdx';",
-        "import {ReferenceHeader, MetadataSection, TermCard, TermBody} from '@site/src/components/rdl';",
+        "import {ReferenceHeader, Abstract, MetadataSection, TermCard, TermBody} from '@site/src/components/rdl';",
         "",
         "<ReferenceHeader />",
+        "",
+        "<Abstract />",
         "",
         "<Intro />",
         "",
