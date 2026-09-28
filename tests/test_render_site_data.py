@@ -669,6 +669,16 @@ def test_accent_colour_emits_a_generated_stylesheet_and_removing_it_deletes_it(m
     assert not accent_path.exists()
 
 
+def test_an_invalid_accent_colour_exits_2_on_one_line_before_writing(module_copy: Path, capsys):
+    env_path = module_copy / ".env"
+    env_path.write_text(
+        env_path.read_text(encoding="utf-8").replace("ACCENT_COLOR=", "ACCENT_COLOR=red"), encoding="utf-8"
+    )
+    assert render(module_copy, "--version", "0.5.7") == 2
+    assert capsys.readouterr().err.splitlines()[-1] == "ACCENT_COLOR must be a 6-digit hex colour, got 'red'"
+    assert not (module_copy / "website" / "src").exists()
+
+
 def accent_stylesheet(module_copy: Path, accent: str) -> str:
     env_path = module_copy / ".env"
     env_path.write_text(

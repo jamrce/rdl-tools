@@ -50,6 +50,8 @@ Pin an exact version, never a range: a module's build must not change because a 
 
 Every command takes `--help`. `python -m rdl_tools` works wherever the console script is not on `PATH`. Exit codes are `0` for success, `1` when the thing under test failed, `2` when the inputs were wrong.
 
+Run every command from the module root, the folder that holds `website/` and `requirements.txt`. `validate` and `format` read `spec/` through `--spec-dir` (default `spec`). `init`, `expand-pins`, `render-docs`, `render-site-data` and `fetch-fonts` read the module through `--module-dir` (default `.`) and exit 2 in a folder with no `website/` or `requirements.txt`.
+
 `validate` resolves `owl:imports` by default, dereferencing each imported IRI over the network so shapes targeting an upstream class see its hierarchy. `--no-imports` skips it — use it offline or in a sandboxed CI job.
 
 ## Ordering constraints

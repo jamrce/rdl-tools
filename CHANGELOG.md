@@ -12,6 +12,7 @@ Notable changes to `rdl-tools`. The format follows [Keep a Changelog](https://ke
 - `rdl-tools render-site-data --draft-changelog` no longer lists existing shapes as `Added a SHACL constraint on …` when previous pin holds no shapes, as every `render-docs` pin does. Delete false bullets from existing unpublished `changelog/v*.md` drafts. ([#21](https://github.com/jamrce/rdl-tools/issues/21))
 - `rdl-tools init`: `spec/` file identical to what it was generated from is skipped, so `--force` reruns work. Duplicate-version error prints paths. Plan lists shapes rename, `github/` rename, `.gitkeep` deletions; none runs before `Proceed?`. `Rename?` prompt gone. ([#22](https://github.com/jamrce/rdl-tools/issues/22))
 - `rdl-tools render-docs` stamps `owl:versionIRI`/`owl:priorVersion` as `https://w3id.org/{W3ID_AUTHORITY}/{MODULE_SLUG}/v{version}/ont`, not ontology IRI. It and `render-site-data` exit 2 unless `.env` sets both keys. Derived module with published pins: `owl:priorVersion` chain becomes mixed. ([#24](https://github.com/jamrce/rdl-tools/issues/24))
+- Turtle syntax error, non-UTF-8 `.ttl`, bad `ACCENT_COLOR`: one line, exit 2, no traceback. Paths relative to module. Outside module root, `render-docs`, `render-site-data`, `expand-pins` (was exit 0), `fetch-fonts` exit 2: pass `--module-dir`. ([#26](https://github.com/jamrce/rdl-tools/issues/26))
 
 ## [0.1.0] - 2026-09-16
 

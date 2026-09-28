@@ -18,6 +18,8 @@ from pathlib import Path
 from rdflib import DCTERMS, OWL, RDF, Graph, URIRef
 from rdflib.namespace import SH
 
+from .spec import parse_turtle
+
 # Unanchored, unlike spec.SEMVER_RE: this one searches a label or filename for a triple.
 SEMVER_SEARCH_RE = re.compile(r"(\d+\.\d+\.\d+)")
 
@@ -63,14 +65,8 @@ def classify_content(graph: Graph) -> ContentKind:
     return ContentKind.UNSUPPORTED
 
 
-def parse_ttl(path: Path) -> Graph:
-    graph = Graph()
-    graph.parse(path, format="turtle")
-    return graph
-
-
-def classify(path: Path, source: str) -> Candidate:
-    graph = parse_ttl(path)
+def classify(path: Path, source: str, module_dir: Path) -> Candidate:
+    graph = parse_turtle(Graph(), path, module_dir)
     return Candidate(path=path, graph=graph, kind=classify_content(graph), source=source)
 
 
@@ -100,14 +96,14 @@ def discover_all(module_dir: Path, from_dir: Path | None = None) -> list[Candida
     """Every candidate `.ttl` file, classified, in priority order. Does not resolve versions."""
     candidates: list[Candidate] = []
     for path in discover_spec_files(module_dir):
-        candidates.append(classify(path, "spec"))
+        candidates.append(classify(path, "spec", module_dir))
     for path in discover_root_files(module_dir):
-        candidates.append(classify(path, "root"))
+        candidates.append(classify(path, "root", module_dir))
     for path in discover_static_pins(module_dir):
-        candidates.append(classify(path, "static-pin"))
+        candidates.append(classify(path, "static-pin", module_dir))
     if from_dir is not None:
         for path in discover_from_dir(from_dir):
-            candidates.append(classify(path, "from"))
+            candidates.append(classify(path, "from", module_dir))
     return candidates
 
 

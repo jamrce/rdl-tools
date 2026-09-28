@@ -23,7 +23,7 @@ from pathlib import Path
 from rdflib import RDF, Graph
 from rdflib.namespace import SH
 
-from ..spec import merge_ontology, ontology_files, require_supported_spec_files, shape_files
+from ..spec import merge_ontology, ontology_files, parse_turtle, require_supported_spec_files, shape_files, shown
 
 
 def add_parser(parser: argparse.ArgumentParser) -> None:
@@ -43,8 +43,7 @@ def shape_asserting_files(paths: list[Path]) -> list[Path]:
     """Ontology files that declare an sh:NodeShape — misplaced shapes (gate 2)."""
     offenders = []
     for path in paths:
-        graph = Graph()
-        graph.parse(path, format="turtle")
+        graph = parse_turtle(Graph(), path, Path())
         if next(graph.subjects(RDF.type, SH.NodeShape), None) is not None:
             offenders.append(path)
     return offenders
@@ -53,7 +52,10 @@ def shape_asserting_files(paths: list[Path]) -> list[Path]:
 def run(args: argparse.Namespace) -> int:
     spec_dir = Path(args.spec_dir)
     if not spec_dir.is_dir():
-        print(f"{spec_dir} is not a directory.", file=sys.stderr)
+        print(
+            f"{shown(spec_dir, Path())} is not a directory. Run from the module root or pass --spec-dir.",
+            file=sys.stderr,
+        )
         return 2
 
     require_supported_spec_files(spec_dir)
@@ -62,7 +64,7 @@ def run(args: argparse.Namespace) -> int:
     shapes_paths = shape_files(spec_dir)
 
     if not ontology_paths:
-        print(f"No ontology .ttl files found in {spec_dir}.", file=sys.stderr)
+        print(f"No ontology .ttl files found in {shown(spec_dir, Path())}.", file=sys.stderr)
         return 2
 
     data_graph = merge_ontology(spec_dir)
@@ -71,7 +73,7 @@ def run(args: argparse.Namespace) -> int:
     if misplaced:
         for path in misplaced:
             print(
-                f"{path} asserts sh:NodeShape but is not named *.shacl.ttl. Shapes there are "
+                f"{shown(path, Path())} asserts sh:NodeShape but is not named *.shacl.ttl. Shapes there are "
                 "published inside the ontology graph and validate nothing — rename the file or "
                 "move the shapes into {module}.shacl.ttl.",
                 file=sys.stderr,
@@ -79,12 +81,12 @@ def run(args: argparse.Namespace) -> int:
         return 2
 
     if not shapes_paths:
-        print(f"Ontology parsed. No *.shacl.ttl in {spec_dir} — SHACL validation skipped.")
+        print(f"Ontology parsed. No *.shacl.ttl in {shown(spec_dir, Path())} — SHACL validation skipped.")
         return 0
 
     shape_graph = Graph()
     for path in shapes_paths:
-        shape_graph.parse(path, format="turtle")
+        parse_turtle(shape_graph, path, Path())
 
     # Lazy: pyshacl pulls in owlrl and a SPARQL engine, which `--help` should not pay for.
     try:

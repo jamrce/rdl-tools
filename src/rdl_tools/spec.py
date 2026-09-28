@@ -8,6 +8,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from rdflib import OWL, RDF, Graph, URIRef
+from rdflib.plugins.parsers.notation3 import BadSyntax
 
 
 class SpecKind(StrEnum):
@@ -22,6 +23,28 @@ class SpecKind(StrEnum):
 VERSION_DIR_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 PREFIX_DECL_RE = re.compile(r"^\s*@prefix\s+([A-Za-z0-9_.\-]*):\s*<([^>]*)>\s*\.", re.MULTILINE)
+# rdflib's BadSyntax message: "at line 13 of <>:\nBad syntax (…) at ^ in:\n<the source around it>".
+BAD_SYNTAX_RE = re.compile(r"at line (\d+) of <[^>]*>:\n(.+?) at \^ in:", re.DOTALL)
+
+
+def shown(path: Path, root: Path) -> str:
+    """`path` relative to `root`, with `/` on every OS, or in full when it lies outside `root`."""
+    return path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+
+
+def parse_turtle(graph: Graph, path: Path, root: Path) -> Graph:
+    """Parse `path` into `graph`, or exit 2 with one line: the file relative to `root`, rdflib's line and reason."""
+    try:
+        graph.parse(path, format="turtle")
+    except BadSyntax as exc:
+        match = BAD_SYNTAX_RE.match(exc.message)
+        detail = f"line {match[1]}: {match[2]}" if match else exc.message.partition("\n")[0]
+        print(f"{shown(path, root)}: {detail}", file=sys.stderr)
+        raise SystemExit(2) from None
+    except UnicodeDecodeError as exc:
+        print(f"{shown(path, root)}: not UTF-8 ({exc.reason} at byte {exc.start})", file=sys.stderr)
+        raise SystemExit(2) from None
+    return graph
 
 
 def local_name(iri: str) -> str:
@@ -111,7 +134,7 @@ def require_supported_spec_files(spec_dir: Path) -> None:
         return
     for path in offenders:
         print(
-            f"{path} is not a supported spec/ file name. spec/ holds ontology and shapes only; "
+            f"{shown(path, spec_dir.parent)} is not a supported spec/ file name. spec/ holds ontology and shapes only; "
             f"supported names are {supported_names_hint()}. Move it out of spec/.",
             file=sys.stderr,
         )
@@ -123,10 +146,10 @@ def merge_ontology(spec_dir: Path) -> Graph:
     require_supported_spec_files(spec_dir)
     files = ontology_files(spec_dir)
     if not files:
-        print(f"No ontology .ttl files found in {spec_dir}", file=sys.stderr)
+        print(f"No ontology .ttl files found in {shown(spec_dir, spec_dir.parent)}", file=sys.stderr)
         raise SystemExit(2)
     for f in files:
-        graph.parse(f, format="turtle")
+        parse_turtle(graph, f, spec_dir.parent)
     require_single_ontology(graph, spec_dir)
     return graph
 
@@ -138,13 +161,14 @@ def require_single_ontology(graph: Graph, spec_dir: Path) -> URIRef:
     owl:Ontology node makes the published IRI and every derived URL non-deterministic.
     """
     subjects = sorted({str(s) for s in graph.subjects(RDF.type, OWL.Ontology)})
+    spec_glob = f"{shown(spec_dir, spec_dir.parent)}/*.ttl"
     if not subjects:
-        print(f"No owl:Ontology subject found in {spec_dir}/*.ttl", file=sys.stderr)
+        print(f"No owl:Ontology subject found in {spec_glob}", file=sys.stderr)
         raise SystemExit(2)
     if len(subjects) > 1:
         listed = "\n  ".join(subjects)
         print(
-            f"{len(subjects)} owl:Ontology subjects in the merged graph from {spec_dir}/*.ttl:\n"
+            f"{len(subjects)} owl:Ontology subjects in the merged graph from {spec_glob}:\n"
             f"  {listed}\n"
             "A module publishes exactly one ontology IRI. Keep one owl:Ontology node and give the "
             "others another type, or move them out of spec/.",
@@ -158,7 +182,7 @@ def merge_shapes(spec_dir: Path) -> Graph:
     graph = Graph()
     require_supported_spec_files(spec_dir)
     for f in shape_files(spec_dir):
-        graph.parse(f, format="turtle")
+        parse_turtle(graph, f, spec_dir.parent)
     return graph
 
 

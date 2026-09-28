@@ -161,10 +161,18 @@ def offline_fonts(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return requested
 
 
-def test_fetch_fonts_writes_the_faces_the_licence_and_the_stylesheet(tmp_path: Path, offline_fonts: list[str]):
-    assert main(["fetch-fonts", "--module-dir", str(tmp_path)]) == 0
+@pytest.fixture
+def module_dir(tmp_path: Path) -> Path:
+    """The skeleton fetch-fonts refuses to run without."""
+    (tmp_path / "website").mkdir()
+    (tmp_path / "requirements.txt").write_text("rdl-tools==0.1.0\n", encoding="utf-8")
+    return tmp_path
 
-    css_dir = tmp_path / "website" / "src" / "css"
+
+def test_fetch_fonts_writes_the_faces_the_licence_and_the_stylesheet(module_dir: Path, offline_fonts: list[str]):
+    assert main(["fetch-fonts", "--module-dir", str(module_dir)]) == 0
+
+    css_dir = module_dir / "website" / "src" / "css"
     assert (css_dir / "fonts" / "barlow-400-latin.woff2").read_bytes() == b"woff2-bytes"
     assert (css_dir / "fonts" / "OFL.txt").read_bytes() == b"OFL text"
     css = (css_dir / "fonts.css").read_text(encoding="utf-8")
@@ -173,12 +181,19 @@ def test_fetch_fonts_writes_the_faces_the_licence_and_the_stylesheet(tmp_path: P
 
 
 def test_fetch_fonts_fails_rather_than_emptying_the_stylesheet(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    module_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     monkeypatch.setattr(fetch_fonts, "fetch", lambda url, browser=False: b"/* nothing parseable */")
-    assert main(["fetch-fonts", "--module-dir", str(tmp_path)]) == 1
-    assert not (tmp_path / "website" / "src" / "css" / "fonts.css").exists()
+    assert main(["fetch-fonts", "--module-dir", str(module_dir)]) == 1
+    assert not (module_dir / "website" / "src" / "css" / "fonts.css").exists()
     assert "No woff2" in capsys.readouterr().err
+
+
+def test_fetch_fonts_reports_the_stylesheet_relative_to_the_module(
+    module_dir: Path, offline_fonts: list[str], capsys: pytest.CaptureFixture[str]
+):
+    assert main(["fetch-fonts", "--module-dir", str(module_dir)]) == 0
+    assert capsys.readouterr().out.rstrip().endswith(" and website/src/css/fonts.css")
 
 
 # module entry point

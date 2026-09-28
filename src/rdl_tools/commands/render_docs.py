@@ -17,6 +17,7 @@ from pathlib import Path
 
 from rdflib import OWL, RDF, Graph, Literal, URIRef
 
+from ..skeleton import require_module
 from ..spec import find_previous_pin, ledger_files, merge_ontology, pin_iri, read_env, w3id_config
 
 
@@ -59,6 +60,7 @@ def find_ledger(spec_dir: Path) -> Path | None:
 
 def run(args: argparse.Namespace) -> int:
     module_dir = Path(args.module_dir).resolve()
+    require_module(module_dir)
     version = args.version.lstrip("v")
 
     spec_dir = module_dir / "spec"
@@ -67,7 +69,9 @@ def run(args: argparse.Namespace) -> int:
     v0_dir = static_dir / "v0"
 
     if pin_dir.exists() and not args.force:
-        print(f"{pin_dir} already exists — pins are immutable. Pass --force to override.", file=sys.stderr)
+        print(
+            f"website/static/v{version} already exists — pins are immutable. Pass --force to override.", file=sys.stderr
+        )
         return 1
 
     graph = merge_ontology(spec_dir)
@@ -91,5 +95,5 @@ def run(args: argparse.Namespace) -> int:
     shutil.rmtree(v0_dir, ignore_errors=True)
     write_artifact_tree(v0_dir, graph, ledger_src)
 
-    print(f"Wrote {pin_dir}/ont/ and {v0_dir}/ont/")
+    print(f"Wrote website/static/v{version}/ont/ and website/static/v0/ont/")
     return 0

@@ -17,7 +17,7 @@ from rdflib import DCTERMS, OWL, RDF, Graph, Literal, URIRef
 from rdflib.compare import isomorphic
 
 from .. import bootstrap, discover, envwrite, skeleton, spec
-from ..spec import local_name, version_key, write_generated
+from ..spec import local_name, shown, version_key, write_generated
 from . import render_docs, render_site_data
 
 MANIFEST_NAME = ".rdl-tools-manifest.json"
@@ -100,11 +100,6 @@ def refuse_unsupported(candidates: list[discover.Candidate]) -> None:
             file=sys.stderr,
         )
     raise SystemExit(2)
-
-
-def shown(path: Path, module_dir: Path) -> str:
-    """`path` relative to `module_dir`, or in full when it lies outside, as a `--from` file does."""
-    return str(path.relative_to(module_dir)) if path.is_relative_to(module_dir) else str(path)
 
 
 def drop_imported_copies(candidates: list[discover.Candidate]) -> list[discover.Candidate]:
@@ -319,7 +314,7 @@ def run_init(
 
     env_path = module_dir / ".env"
     if env_path.exists() and not force:
-        raise InitError(f"{env_path} already exists (use --force to overwrite).")
+        raise InitError(f"{shown(env_path, module_dir)} already exists (use --force to overwrite).")
 
     env_values = envwrite.build_env(
         module_namespace=namespace_uri,
@@ -338,11 +333,11 @@ def run_init(
 
     source = f"{shown(selected.path, module_dir)}, v{selected.version}"
     plan_lines = [
-        f"  write {env_path.relative_to(module_dir)}",
-        f"  write {ontology_target.relative_to(module_dir)} (from {source})",
+        f"  write {shown(env_path, module_dir)}",
+        f"  write {shown(ontology_target, module_dir)} (from {source})",
     ]
     if len(shapes_graph) > 0:
-        plan_lines.append(f"  write {shapes_target.relative_to(module_dir)}")
+        plan_lines.append(f"  write {shown(shapes_target, module_dir)}")
     for old, new in renames:
         plan_lines.append(f"  rename {shown(old, module_dir)} -> {shown(new, module_dir)}")
     imported_versions = [c.version for c in ontology_candidates if c.source in ("from", "static-pin")]
@@ -351,7 +346,7 @@ def run_init(
             f"  register pin v{version} (RDF-only: no reference.mdx/doc version is generated for imported history)"
         )
     for placeholder in placeholders:
-        plan_lines.append(f"  delete {placeholder.relative_to(module_dir)}")
+        plan_lines.append(f"  delete {shown(placeholder, module_dir)}")
     if bootstrap.workflows_pending(module_dir):
         plan_lines.append("  rename github/ -> .github/")
     out("Plan:")
@@ -382,7 +377,7 @@ def run_init(
             continue
         pin_dir = static_dir / f"v{candidate.version}"
         if pin_dir.exists() and not force:
-            warn(f"{pin_dir} already exists — leaving it alone (pass --force to overwrite).")
+            warn(f"{shown(pin_dir, module_dir)} already exists — leaving it alone (pass --force to overwrite).")
             continue
         cand_ontology_iri = next(candidate.graph.subjects(RDF.type, OWL.Ontology), None)
         if not isinstance(cand_ontology_iri, URIRef):

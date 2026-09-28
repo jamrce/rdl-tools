@@ -37,6 +37,7 @@ from rdflib.namespace import SH, SKOS, Namespace
 from rdflib.term import Node
 
 from ..colour import accent_ramp, oklch_css
+from ..skeleton import require_module
 from ..spec import (
     declared_prefixes,
     find_previous_pin,
@@ -44,9 +45,11 @@ from ..spec import (
     merge_ontology,
     merge_shapes,
     ontology_files,
+    parse_turtle,
     pin_iri,
     read_env,
     shape_files,
+    shown,
     version_key,
     w3id_config,
     write_generated,
@@ -200,7 +203,7 @@ class ModuleData:
 
         ontology = next(self.graph.subjects(RDF.type, OWL.Ontology), None)
         if not isinstance(ontology, URIRef):
-            print(f"No owl:Ontology subject found in {self.spec_dir}/*.ttl", file=sys.stderr)
+            print("No owl:Ontology subject found in spec/*.ttl", file=sys.stderr)
             raise SystemExit(2)
         self.ontology_iri: URIRef = ontology
 
@@ -918,6 +921,7 @@ def check_drift(module: ModuleData) -> list[str]:
 
 def run(args: argparse.Namespace) -> int:
     module_dir = Path(args.module_dir).resolve()
+    require_module(module_dir)
     module = ModuleData(module_dir, args.version.lstrip("v") if args.version else None)
     version = module.version
 
@@ -978,7 +982,11 @@ def run(args: argparse.Namespace) -> int:
     accent = module.env.get("ACCENT_COLOR", "").strip()
     accent_path = module_dir / "website" / "src" / "css" / "accent.generated.css"
     if accent:
-        outputs[accent_path] = accent_css_text(accent)
+        try:
+            outputs[accent_path] = accent_css_text(accent)
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 2
 
     print_coverage(rows)
     for conflict in module.conflicts:
@@ -995,7 +1003,7 @@ def run(args: argparse.Namespace) -> int:
         report_path = Path(args.coverage_report)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         write_generated(report_path, json_text({"version": version, "terms": rows}))
-        print(f"Wrote {report_path}")
+        print(f"Wrote {shown(report_path, Path())}")
 
     if args.check:
         print(f"--check: generated {len(outputs)} file(s) in memory for v{version}, wrote nothing.")
@@ -1004,10 +1012,10 @@ def run(args: argparse.Namespace) -> int:
     for path, text in outputs.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         write_generated(path, text)
-        print(f"Wrote {path.relative_to(module_dir)}")
+        print(f"Wrote {shown(path, module_dir)}")
     if not accent and accent_path.exists():
         accent_path.unlink()
-        print(f"Removed {accent_path.relative_to(module_dir)} (ACCENT_COLOR is unset)")
+        print(f"Removed {shown(accent_path, module_dir)} (ACCENT_COLOR is unset)")
 
     if previous_versions:
         print(
@@ -1033,20 +1041,19 @@ def draft_changelog(module: ModuleData, version: str) -> None:
     if previous_pin is not None:
         previous_ttl = previous_pin / "ont" / "ont.ttl"
         if previous_ttl.exists():
-            previous = Graph()
-            previous.parse(previous_ttl, format="turtle")
+            previous = parse_turtle(Graph(), previous_ttl, module.module_dir)
             has_shapes = (None, SH.targetClass, None) in previous
             bullets = diff_bullets(previous, module.merged if has_shapes else module.graph, module)
-            print(f"Diffed against {previous_ttl.relative_to(module.module_dir)}: {len(bullets)} bullet(s)")
+            print(f"Diffed against {shown(previous_ttl, module.module_dir)}: {len(bullets)} bullet(s)")
     else:
         print("No previous pin found — drafting an initial-release note.")
         bullets = [f"Initial release of {module.title}."]
 
     if target.exists():
-        print(f"{target.relative_to(module.module_dir)} exists — leaving it alone. Draft for review:")
+        print(f"{shown(target, module.module_dir)} exists — leaving it alone. Draft for review:")
         for bullet in bullets:
             print(f"  - {bullet}")
         return
     changelog_dir.mkdir(parents=True, exist_ok=True)
     write_generated(target, changelog_draft_text(version, module.release_date(), bullets))
-    print(f"Wrote {target.relative_to(module.module_dir)} — edit the wording before tagging.")
+    print(f"Wrote {shown(target, module.module_dir)} — edit the wording before tagging.")

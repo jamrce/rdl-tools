@@ -18,7 +18,8 @@ from pathlib import Path
 
 from rdflib import Graph
 
-from ..spec import semver_key
+from ..skeleton import require_module
+from ..spec import parse_turtle, semver_key
 
 # Written beside each pin's ont.ttl. ont.ttl itself is committed, never regenerated here.
 DERIVED_FORMATS = (("ont.rdf", "xml"), ("ont.jsonld", "json-ld"), ("ont.nt", "nt"))
@@ -38,11 +39,10 @@ def pin_dirs(static_dir: Path) -> list[Path]:
     return [pin for _, pin in sorted(found, key=lambda pair: pair[0])]
 
 
-def expand(pin: Path) -> list[Path]:
+def expand(pin: Path, module_dir: Path) -> list[Path]:
     """Write the derived serialisations beside a pin's committed ont.ttl."""
     ont_dir = pin / "ont"
-    graph = Graph()
-    graph.parse(ont_dir / "ont.ttl", format="turtle")
+    graph = parse_turtle(Graph(), ont_dir / "ont.ttl", module_dir)
     written = []
     for name, fmt in DERIVED_FORMATS:
         # encoding is explicit: the N-Triples serializer warns when it has to assume UTF-8.
@@ -62,16 +62,18 @@ def copy_to_v0(pin: Path, static_dir: Path) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    static_dir = Path(args.module_dir).resolve() / "website" / "static"
+    module_dir = Path(args.module_dir).resolve()
+    require_module(module_dir)
+    static_dir = module_dir / "website" / "static"
     pins = pin_dirs(static_dir)
     if not pins:
         # The normal state before the first release: the staging docs own /v0/ont/, and there is
         # no artifact tree to expand yet.
-        print(f"No pins with a committed ont.ttl under {static_dir} — nothing to expand.")
+        print("No pins with a committed ont.ttl under website/static — nothing to expand.")
         return 0
 
     for pin in pins:
-        expand(pin)
+        expand(pin, module_dir)
         print(f"Expanded {pin.name}/ont/ ({', '.join(name for name, _ in DERIVED_FORMATS)})")
 
     copy_to_v0(pins[-1], static_dir)

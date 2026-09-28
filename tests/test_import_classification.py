@@ -125,6 +125,8 @@ def module_root(tmp_path: Path) -> Path:
     (spec_dir / "ex.ttl").write_text(ONTOLOGY, encoding="utf-8")
     (spec_dir / "ex.shacl.ttl").write_text(SHAPES, encoding="utf-8")
     (tmp_path / ".env").write_text("MODULE_SLUG=ex\nW3ID_AUTHORITY=testauth\n", encoding="utf-8")
+    (tmp_path / "website").mkdir()
+    (tmp_path / "requirements.txt").write_text("rdl-tools==0.1.0\n", encoding="utf-8")
     return tmp_path
 
 

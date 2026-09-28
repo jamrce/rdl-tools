@@ -17,6 +17,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urlparse
 
+from ..skeleton import require_module
 from ..spec import write_generated
 
 TIMEOUT_SECONDS = 30
@@ -106,7 +107,9 @@ def fonts_css_text(faces: list[Face]) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
-    css_dir = Path(args.module_dir).resolve() / "website" / "src" / "css"
+    module_dir = Path(args.module_dir).resolve()
+    require_module(module_dir)
+    css_dir = module_dir / "website" / "src" / "css"
     fonts_dir = css_dir / "fonts"
     fonts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,5 +127,5 @@ def run(args: argparse.Namespace) -> int:
 
     (fonts_dir / "OFL.txt").write_bytes(fetch(OFL_URL))
     write_generated(css_dir / "fonts.css", fonts_css_text(faces))
-    print(f"Wrote {len(faces)} woff2 files ({total} bytes) and {css_dir / 'fonts.css'}")
+    print(f"Wrote {len(faces)} woff2 files ({total} bytes) and website/src/css/fonts.css")
     return 0
