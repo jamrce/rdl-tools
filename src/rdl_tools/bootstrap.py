@@ -15,11 +15,16 @@ import sys
 from pathlib import Path
 
 
+def workflows_pending(module_dir: Path) -> bool:
+    """True when `activate_workflows` would rename `github/` to `.github/`."""
+    return (module_dir / "github").is_dir() and not (module_dir / ".github").exists()
+
+
 def activate_workflows(module_dir: Path) -> Path | None:
     """Rename `github/workflows/` to `.github/workflows/`. None when already done, or nothing to do."""
     source = module_dir / "github"
     dest = module_dir / ".github"
-    if not source.is_dir() or dest.exists():
+    if not workflows_pending(module_dir):
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
     source.rename(dest)

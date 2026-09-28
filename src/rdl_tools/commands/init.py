@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from rdflib import DCTERMS, OWL, RDF, Graph, Literal, URIRef
+from rdflib.compare import isomorphic
 
 from .. import bootstrap, discover, envwrite, skeleton
 from ..spec import local_name, version_key, write_generated
@@ -25,7 +26,8 @@ NO_INPUT = (
     "rdl-tools init needs to ask a question, but stdin is closed — piped input, or no terminal.\n"
     "\n"
     "Run it in a terminal, or non-interactively with --yes, adding --repo-owner and --slug if it\n"
-    "cannot derive them. `--clean` undoes a partial run."
+    f"cannot derive them. `--clean` removes the files listed in {MANIFEST_NAME}; it does not\n"
+    "reverse renames or deletions."
 )
 
 Report = dict[str, Any]
@@ -39,7 +41,7 @@ def add_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--module-dir", default=".", help="Target folder (default: cwd)")
     parser.add_argument("--from", dest="from_dir", help="Directory of loose .ttl version snapshots to import")
     parser.add_argument("--force", action="store_true", help="Overwrite an existing .env / spec / pin")
-    parser.add_argument("--clean", action="store_true", help="Remove generated files only, then exit")
+    parser.add_argument("--clean", action="store_true", help=f"Remove the files listed in {MANIFEST_NAME}, then exit")
     parser.add_argument("--skip-install", action="store_true", help="Skip venv/npm install (CI, offline)")
     parser.add_argument("--yes", action="store_true", help="Assume yes to every confirmation (CI, scripting)")
     parser.add_argument("--repo-owner", help="REPO_OWNER, skips the prompt")
@@ -100,6 +102,32 @@ def refuse_unsupported(candidates: list[discover.Candidate]) -> None:
     raise SystemExit(2)
 
 
+def shown(path: Path, module_dir: Path) -> str:
+    """`path` relative to `module_dir`, or in full when it lies outside, as a `--from` file does."""
+    return str(path.relative_to(module_dir)) if path.is_relative_to(module_dir) else str(path)
+
+
+def drop_imported_copies(candidates: list[discover.Candidate]) -> list[discover.Candidate]:
+    """Drop each `spec/` candidate a previous run generated, unchanged, from the other candidates.
+
+    An ontology copy is isomorphic to one source; the shapes copy to the union of every source shapes file.
+    """
+    sources = [c for c in candidates if c.source != "spec"]
+    shapes_union = Graph()
+    for source in sources:
+        if source.kind is discover.ContentKind.SHAPES:
+            shapes_union += source.graph
+
+    def generated(candidate: discover.Candidate) -> bool:
+        if candidate.source != "spec":
+            return False
+        if candidate.kind is discover.ContentKind.SHAPES:
+            return isomorphic(candidate.graph, shapes_union)
+        return any(isomorphic(candidate.graph, source.graph) for source in sources)
+
+    return [c for c in candidates if not generated(c)]
+
+
 def classify_and_merge(
     candidates: list[discover.Candidate],
 ) -> tuple[Graph, Graph, list[discover.Candidate]]:
@@ -126,15 +154,17 @@ def classify_and_merge(
     return ontology_graph, shapes_graph, candidates
 
 
-def refuse_duplicate_versions(ontology_candidates: list[discover.Candidate]) -> None:
-    """Refuse, by name, two ontology candidates resolving to one version — both claim one pin."""
+def refuse_duplicate_versions(ontology_candidates: list[discover.Candidate], module_dir: Path) -> None:
+    """Refuse, by path, two ontology candidates resolving to one version — both claim one pin."""
     seen: dict[str, list[Path]] = {}
     for candidate in ontology_candidates:
         seen.setdefault(candidate.version or "", []).append(candidate.path)
     clashes = {version: paths for version, paths in seen.items() if len(paths) > 1}
     if not clashes:
         return
-    listed = "\n  ".join(f"{version}: {', '.join(p.name for p in paths)}" for version, paths in sorted(clashes.items()))
+    listed = "\n  ".join(
+        f"{version}: {', '.join(shown(p, module_dir) for p in paths)}" for version, paths in sorted(clashes.items())
+    )
     raise InitError(
         f"Two or more ontology files resolve to the same version:\n  {listed}\n"
         "One version, one file. Remove or re-version the duplicate."
@@ -207,19 +237,7 @@ def run_init(
         return report
 
     refuse_unsupported(candidates)
-    ontology_graph, shapes_graph, candidates = classify_and_merge(candidates)
-
-    renames = rename_shapes_files(candidates)
-    if renames:
-        out("Files classified as SHACL shapes by content, to be renamed:")
-        for old, new in renames:
-            out(f"  {old.name} -> {new.name}")
-        if assume_yes or prompt("Rename? [Y/n] ").strip().lower() not in ("n", "no"):
-            for old, new in renames:
-                old.rename(new)
-                for candidate in candidates:
-                    if candidate.path == old:
-                        candidate.path = new
+    ontology_graph, shapes_graph, candidates = classify_and_merge(drop_imported_copies(candidates))
 
     # Resolve version keys, always confirmed.
     for candidate in candidates:
@@ -234,7 +252,7 @@ def run_init(
         if candidate.kind is not discover.ContentKind.ONTOLOGY:
             continue
         note = f" ({candidate.version_problem})" if candidate.version_problem else ""
-        out(f"  {candidate.path.name}: {candidate.version} [{candidate.version_source}]{note}")
+        out(f"  {shown(candidate.path, module_dir)}: {candidate.version} [{candidate.version_source}]{note}")
     if not assume_yes and prompt("Confirm these versions? [Y/n] ").strip().lower() in ("n", "no"):
         raise InitError("Version resolution not confirmed. Nothing written.")
 
@@ -244,7 +262,7 @@ def run_init(
     ontology_candidates.sort(key=lambda c: version_key(c.version or ""))
     if not ontology_candidates:
         raise InitError("No owl:Ontology subject found across the discovered files.")
-    refuse_duplicate_versions(ontology_candidates)
+    refuse_duplicate_versions(ontology_candidates, module_dir)
     selected = ontology_candidates[-1]
 
     ontology_iri = next(ontology_graph.subjects(RDF.type, OWL.Ontology), None)
@@ -314,28 +332,41 @@ def run_init(
     spec_dir.mkdir(parents=True, exist_ok=True)
     ontology_target = spec_dir / f"{resolved_slug}.ttl"
     shapes_target = spec_dir / f"{resolved_slug}.shacl.ttl"
+    changelog_dir = module_dir / "changelog"
+    renames = rename_shapes_files(candidates)
+    placeholders = [p for p in (spec_dir / ".gitkeep", changelog_dir / ".gitkeep") if p.exists()]
 
+    source = f"{shown(selected.path, module_dir)}, v{selected.version}"
     plan_lines = [
         f"  write {env_path.relative_to(module_dir)}",
-        f"  write {ontology_target.relative_to(module_dir)} (from {selected.path.name}, v{selected.version})",
+        f"  write {ontology_target.relative_to(module_dir)} (from {source})",
     ]
     if len(shapes_graph) > 0:
         plan_lines.append(f"  write {shapes_target.relative_to(module_dir)}")
+    for old, new in renames:
+        plan_lines.append(f"  rename {shown(old, module_dir)} -> {shown(new, module_dir)}")
     imported_versions = [c.version for c in ontology_candidates if c.source in ("from", "static-pin")]
     for version in imported_versions:
         plan_lines.append(
             f"  register pin v{version} (RDF-only: no reference.mdx/doc version is generated for imported history)"
         )
+    for placeholder in placeholders:
+        plan_lines.append(f"  delete {placeholder.relative_to(module_dir)}")
+    if bootstrap.workflows_pending(module_dir):
+        plan_lines.append("  rename github/ -> .github/")
     out("Plan:")
     for line in plan_lines:
         out(line)
     if not assume_yes and prompt("Proceed? [Y/n] ").strip().lower() in ("n", "no"):
         raise InitError("Plan not confirmed. Nothing written.")
 
+    for old, new in renames:
+        old.rename(new)
     envwrite.write_env(module_dir, env_values, force=force)
     # The highest version's own graph, never the union. See docs/adrs/ADR-004.
     write_generated(ontology_target, selected.graph.serialize(format="turtle"))
-    (spec_dir / ".gitkeep").unlink(missing_ok=True)
+    for placeholder in placeholders:
+        placeholder.unlink()
     derived = [env_path, ontology_target]
     if len(shapes_graph) > 0:
         write_generated(shapes_target, shapes_graph.serialize(format="turtle"))
@@ -343,7 +374,6 @@ def run_init(
 
     major_iri = f"https://w3id.org/{resolved_authority}/{resolved_slug}/v0/ont"
 
-    changelog_dir = module_dir / "changelog"
     changelog_dir.mkdir(parents=True, exist_ok=True)
 
     # Imported history is RDF only: no reference.mdx, no doc version. See docs/adrs/ADR-003.
@@ -377,7 +407,6 @@ def run_init(
         )
         write_generated(changelog_path, render_site_data.changelog_draft_text(candidate.version or "", None, bullets))
         derived.append(changelog_path)
-    (changelog_dir / ".gitkeep").unlink(missing_ok=True)
 
     write_manifest(module_dir, derived)
 
