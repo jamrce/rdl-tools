@@ -127,5 +127,5 @@ def run(args: argparse.Namespace) -> int:
 
     (fonts_dir / "OFL.txt").write_bytes(fetch(OFL_URL))
     write_generated(css_dir / "fonts.css", fonts_css_text(faces))
-    print(f"Wrote {len(faces)} woff2 files ({total} bytes) and {(css_dir / 'fonts.css').relative_to(module_dir)}")
+    print(f"Wrote {len(faces)} woff2 files ({total} bytes) and website/src/css/fonts.css")
     return 0

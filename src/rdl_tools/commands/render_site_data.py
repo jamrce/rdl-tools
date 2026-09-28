@@ -49,6 +49,7 @@ from ..spec import (
     pin_iri,
     read_env,
     shape_files,
+    shown,
     version_key,
     w3id_config,
     write_generated,
@@ -1002,7 +1003,7 @@ def run(args: argparse.Namespace) -> int:
         report_path = Path(args.coverage_report)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         write_generated(report_path, json_text({"version": version, "terms": rows}))
-        print(f"Wrote {report_path}")
+        print(f"Wrote {shown(report_path, Path())}")
 
     if args.check:
         print(f"--check: generated {len(outputs)} file(s) in memory for v{version}, wrote nothing.")
@@ -1011,10 +1012,10 @@ def run(args: argparse.Namespace) -> int:
     for path, text in outputs.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         write_generated(path, text)
-        print(f"Wrote {path.relative_to(module_dir)}")
+        print(f"Wrote {shown(path, module_dir)}")
     if not accent and accent_path.exists():
         accent_path.unlink()
-        print(f"Removed {accent_path.relative_to(module_dir)} (ACCENT_COLOR is unset)")
+        print(f"Removed {shown(accent_path, module_dir)} (ACCENT_COLOR is unset)")
 
     if previous_versions:
         print(
@@ -1043,16 +1044,16 @@ def draft_changelog(module: ModuleData, version: str) -> None:
             previous = parse_turtle(Graph(), previous_ttl, module.module_dir)
             has_shapes = (None, SH.targetClass, None) in previous
             bullets = diff_bullets(previous, module.merged if has_shapes else module.graph, module)
-            print(f"Diffed against {previous_ttl.relative_to(module.module_dir)}: {len(bullets)} bullet(s)")
+            print(f"Diffed against {shown(previous_ttl, module.module_dir)}: {len(bullets)} bullet(s)")
     else:
         print("No previous pin found — drafting an initial-release note.")
         bullets = [f"Initial release of {module.title}."]
 
     if target.exists():
-        print(f"{target.relative_to(module.module_dir)} exists — leaving it alone. Draft for review:")
+        print(f"{shown(target, module.module_dir)} exists — leaving it alone. Draft for review:")
         for bullet in bullets:
             print(f"  - {bullet}")
         return
     changelog_dir.mkdir(parents=True, exist_ok=True)
     write_generated(target, changelog_draft_text(version, module.release_date(), bullets))
-    print(f"Wrote {target.relative_to(module.module_dir)} — edit the wording before tagging.")
+    print(f"Wrote {shown(target, module.module_dir)} — edit the wording before tagging.")

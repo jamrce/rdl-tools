@@ -28,8 +28,8 @@ BAD_SYNTAX_RE = re.compile(r"at line (\d+) of <[^>]*>:\n(.+?) at \^ in:", re.DOT
 
 
 def shown(path: Path, root: Path) -> str:
-    """`path` relative to `root`, or in full when it lies outside, as an `init --from` file does."""
-    return str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+    """`path` relative to `root`, with `/` on every OS, or in full when it lies outside `root`."""
+    return path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
 
 
 def parse_turtle(graph: Graph, path: Path, root: Path) -> Graph:

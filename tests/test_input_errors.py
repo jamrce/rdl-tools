@@ -7,12 +7,13 @@ not a module. Every path in a message is relative to the module folder.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
 from rdl_tools.cli import main
 from rdl_tools.commands import fetch_fonts
+from rdl_tools.spec import shown
 
 # The issue's reproduction. rdflib reports the missing dot at line 13, the EOF after the last line.
 BROKEN = """# spec/min.ttl (last statement has no closing dot)
@@ -223,3 +224,36 @@ def test_a_blank_node_ontology_subject_is_shown_relative_to_the_module(tmp_path:
     module_dir = make_module(tmp_path, {"spec/min.ttl": ontology})
     assert exit_code(["render-site-data", "--module-dir", str(module_dir), "--version", "0.1.0"]) == 2
     assert capsys.readouterr().err.splitlines()[-1] == "No owl:Ontology subject found in spec/*.ttl"
+
+
+# `/` in every message, on every OS
+
+
+@pytest.mark.parametrize(
+    ("path", "root", "expected"),
+    [
+        (r"C:\m\spec\min.ttl", r"C:\m", "spec/min.ttl"),
+        (r"spec\min.ttl", ".", "spec/min.ttl"),
+        (r"D:\elsewhere\old.ttl", r"C:\m", r"D:\elsewhere\old.ttl"),
+    ],
+    ids=["inside-absolute", "inside-relative", "outside"],
+)
+def test_a_windows_path_is_shown_with_forward_slashes_inside_the_root(path: str, root: str, expected: str):
+    assert shown(PureWindowsPath(path), PureWindowsPath(root)) == expected  # type: ignore[arg-type]
+
+
+def test_format_reports_the_files_it_rewrote_with_forward_slashes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+):
+    module_dir = make_module(tmp_path, {"spec/min.ttl": VALID})
+    monkeypatch.chdir(module_dir)
+    assert main(["format", "--check"]) == 1
+    assert "spec/min.ttl is not canonically formatted." in capsys.readouterr().err
+    assert main(["format"]) == 0
+    assert "Reformatted spec/min.ttl" in capsys.readouterr().out
+
+
+def test_render_site_data_reports_the_files_it_wrote_with_forward_slashes(tmp_path: Path, capsys):
+    module_dir = make_module(tmp_path, {"spec/min.ttl": VALID})
+    assert main(["render-site-data", "--module-dir", str(module_dir), "--version", "0.1.0"]) == 0
+    assert "Wrote website/src/generated/site.json" in capsys.readouterr().out.splitlines()

@@ -21,6 +21,7 @@ from ..spec import (
     ontology_files,
     parse_turtle,
     require_supported_spec_files,
+    shown,
     supported_names_hint,
     write_generated,
 )
@@ -50,12 +51,12 @@ def targets(args: argparse.Namespace) -> list[Path] | None:
     if args.ontology:
         path = Path(args.ontology)
         if not path.exists():
-            print(f"{path} does not exist.", file=sys.stderr)
+            print(f"{shown(path, Path())} does not exist.", file=sys.stderr)
             return None
         # The ledger is another tool's output, so it is refused here as well as in the sweep.
         if classify_spec_file(path) not in ("ontology", "shapes"):
             print(
-                f"{path} is not a file this command formats; it takes {supported_names_hint()} "
+                f"{shown(path, Path())} is not a file this command formats; it takes {supported_names_hint()} "
                 "other than the generated ledger.",
                 file=sys.stderr,
             )
@@ -64,12 +65,15 @@ def targets(args: argparse.Namespace) -> list[Path] | None:
 
     spec_dir = Path(args.spec_dir)
     if not spec_dir.is_dir():
-        print(f"{spec_dir} is not a directory. Run from the module root or pass --spec-dir.", file=sys.stderr)
+        print(
+            f"{shown(spec_dir, Path())} is not a directory. Run from the module root or pass --spec-dir.",
+            file=sys.stderr,
+        )
         return None
     require_supported_spec_files(spec_dir)
     found = ontology_files(spec_dir)
     if not found:
-        print(f"No ontology .ttl files found in {spec_dir}.", file=sys.stderr)
+        print(f"No ontology .ttl files found in {shown(spec_dir, Path())}.", file=sys.stderr)
         return None
     return found
 
@@ -83,7 +87,7 @@ def run(args: argparse.Namespace) -> int:
     for path in paths:
         if is_published_pin(path):
             print(
-                f"{path} is inside website/static/ — published artifacts are byte-immutable "
+                f"{shown(path, Path())} is inside website/static/ — published artifacts are byte-immutable "
                 "and are never reformatted. Format the source in spec/ instead.",
                 file=sys.stderr,
             )
@@ -96,12 +100,12 @@ def run(args: argparse.Namespace) -> int:
             failures.append(path)
             continue
         write_generated(path, normalized)
-        print(f"Reformatted {path}")
+        print(f"Reformatted {shown(path, Path())}")
 
     if args.check:
         if failures:
             for path in failures:
-                print(f"{path} is not canonically formatted.", file=sys.stderr)
+                print(f"{shown(path, Path())} is not canonically formatted.", file=sys.stderr)
             print("Formatting check failed. Run `rdl-tools format` without --check.", file=sys.stderr)
             return 1
         print(f"Formatting check passed ({len(paths)} file(s)).")

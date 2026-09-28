@@ -348,7 +348,7 @@ def test_duplicate_version_error_names_each_file_by_relative_path(module_dir: Pa
     (module_dir / "ex.ttl").write_text(ontology_ttl("0.1.0", extra="ex:Other a owl:Class ."), encoding="utf-8")
     with pytest.raises(InitError) as raised:
         run(module_dir, repo_owner="owner", force=True)
-    assert f"0.1.0: {Path('spec', 'ex.ttl')}, ex.ttl" in str(raised.value)
+    assert "0.1.0: spec/ex.ttl, ex.ttl" in str(raised.value)
 
 
 def test_duplicate_version_error_names_a_from_file_by_its_full_path(module_dir: Path, tmp_path: Path):
@@ -447,8 +447,9 @@ def test_plan_lists_every_rename_and_deletion(module_dir: Path):
     plan = run(module_dir, repo_owner="owner")["_stdout"].split("Plan:", 1)[1]
     assert "  rename ex-shapes.ttl -> ex-shapes.shacl.ttl\n" in plan
     assert "  rename github/ -> .github/\n" in plan
-    assert f"  delete {Path('spec', '.gitkeep')}\n" in plan
-    assert f"  delete {Path('changelog', '.gitkeep')}\n" in plan
+    # `/` on every OS: the plan reads the same on Windows as in the docs.
+    assert "  delete spec/.gitkeep\n" in plan
+    assert "  delete changelog/.gitkeep\n" in plan
 
 
 # the CLI surface

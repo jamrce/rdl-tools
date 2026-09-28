@@ -69,7 +69,7 @@ def run(args: argparse.Namespace) -> int:
     if not pins:
         # The normal state before the first release: the staging docs own /v0/ont/, and there is
         # no artifact tree to expand yet.
-        print(f"No pins with a committed ont.ttl under {static_dir.relative_to(module_dir)} — nothing to expand.")
+        print("No pins with a committed ont.ttl under website/static — nothing to expand.")
         return 0
 
     for pin in pins:
