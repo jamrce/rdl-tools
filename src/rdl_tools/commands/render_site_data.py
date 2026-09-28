@@ -674,51 +674,19 @@ def barrel_text(versions: list[str]) -> str:
 
 
 def accent_css_text(accent: str) -> str:
-    """The --rdl-accent-* token overrides for one accent hex, light and dark.
+    """The nine --rdl-accent-{100..900} ramp stops for one accent hex, in one :root block.
 
-    Every component reads var(--rdl-*), so these are the whole recolouring surface. Infima's
-    primary ramp is remapped from the same stops so built-in theme chrome matches.
+    Only the stops: the semantic aliases and Infima mappings built on them live in the module's
+    custom.css, which the template owns (ADR-001). Both themes read the same stops.
     """
     ramp = accent_ramp(accent)
     ramp_lines = "\n".join(f"  --rdl-accent-{stop}: {oklch_css(ramp[stop])};" for stop in sorted(ramp))
     return f"""/* {GENERATED_BANNER}
    Derived from ACCENT_COLOR={accent} in .env. Delete the key to fall back to the Industry steel
-   values in rdl.css. */
+   values in custom.css. */
 
 :root {{
 {ramp_lines}
-
-  --rdl-accent: var(--rdl-accent-600);
-  --rdl-accent-strong: var(--rdl-accent-700);
-  --rdl-accent-hover: var(--rdl-accent-600);
-  --rdl-accent-text: var(--rdl-accent-700);
-  --rdl-accent-tint: var(--rdl-accent-100);
-  --rdl-accent-tint-text: var(--rdl-accent-800);
-
-  --ifm-color-primary: var(--rdl-accent-600);
-  --ifm-color-primary-dark: var(--rdl-accent-700);
-  --ifm-color-primary-darker: var(--rdl-accent-700);
-  --ifm-color-primary-darkest: var(--rdl-accent-800);
-  --ifm-color-primary-light: var(--rdl-accent-500);
-  --ifm-color-primary-lighter: var(--rdl-accent-400);
-  --ifm-color-primary-lightest: var(--rdl-accent-300);
-}}
-
-[data-theme='dark'] {{
-  --rdl-accent: var(--rdl-accent-400);
-  --rdl-accent-strong: var(--rdl-accent-300);
-  --rdl-accent-hover: var(--rdl-accent-200);
-  --rdl-accent-text: var(--rdl-accent-300);
-  --rdl-accent-tint: {oklch_css(ramp[400], alpha=0.14)};
-  --rdl-accent-tint-text: var(--rdl-accent-200);
-
-  --ifm-color-primary: var(--rdl-accent-400);
-  --ifm-color-primary-dark: var(--rdl-accent-500);
-  --ifm-color-primary-darker: var(--rdl-accent-500);
-  --ifm-color-primary-darkest: var(--rdl-accent-600);
-  --ifm-color-primary-light: var(--rdl-accent-300);
-  --ifm-color-primary-lighter: var(--rdl-accent-200);
-  --ifm-color-primary-lightest: var(--rdl-accent-100);
 }}
 """
 

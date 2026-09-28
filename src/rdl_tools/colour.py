@@ -65,7 +65,6 @@ def accent_ramp(hex_colour: str) -> dict[int, Oklch]:
     }
 
 
-def oklch_css(triple: Oklch, alpha: float | None = None) -> str:
+def oklch_css(triple: Oklch) -> str:
     lightness, chroma, hue = triple
-    body = f"{lightness:.3f} {chroma:.4f} {hue:.2f}"
-    return f"oklch({body} / {alpha})" if alpha is not None else f"oklch({body})"
+    return f"oklch({lightness:.3f} {chroma:.4f} {hue:.2f})"
