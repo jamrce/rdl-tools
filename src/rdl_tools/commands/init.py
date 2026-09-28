@@ -16,7 +16,7 @@ from typing import Any
 from rdflib import DCTERMS, OWL, RDF, Graph, Literal, URIRef
 from rdflib.compare import isomorphic
 
-from .. import bootstrap, discover, envwrite, skeleton
+from .. import bootstrap, discover, envwrite, skeleton, spec
 from ..spec import local_name, version_key, write_generated
 from . import render_docs, render_site_data
 
@@ -372,8 +372,6 @@ def run_init(
         write_generated(shapes_target, shapes_graph.serialize(format="turtle"))
         derived.append(shapes_target)
 
-    major_iri = f"https://w3id.org/{resolved_authority}/{resolved_slug}/v0/ont"
-
     changelog_dir.mkdir(parents=True, exist_ok=True)
 
     # Imported history is RDF only: no reference.mdx, no doc version. See docs/adrs/ADR-003.
@@ -389,7 +387,7 @@ def run_init(
         cand_ontology_iri = next(candidate.graph.subjects(RDF.type, OWL.Ontology), None)
         if not isinstance(cand_ontology_iri, URIRef):
             continue
-        pin_iri = URIRef(major_iri.replace("/v0/ont", f"/v{candidate.version}/ont"))
+        pin_iri = URIRef(spec.pin_iri(resolved_authority, resolved_slug, candidate.version or ""))
         render_docs.stamp_version(candidate.graph, cand_ontology_iri, pin_iri, candidate.version or "", prior_pin_iri)
         render_docs.write_artifact_tree(pin_dir, candidate.graph, ledger_src=None)
         derived.append(pin_dir / "ont" / "ont.ttl")

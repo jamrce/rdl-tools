@@ -192,6 +192,21 @@ def read_env(module_dir: Path) -> dict[str, str]:
     return env
 
 
+def w3id_config(env: dict[str, str]) -> tuple[str, str]:
+    """`(W3ID_AUTHORITY, MODULE_SLUG)` from .env, or exit 2 naming each one missing or empty."""
+    missing = [key for key in ("W3ID_AUTHORITY", "MODULE_SLUG") if not env.get(key)]
+    if missing:
+        print(f"{' and '.join(missing)} not set in .env; pin IRIs are built from them.", file=sys.stderr)
+        raise SystemExit(2)
+    return env["W3ID_AUTHORITY"], env["MODULE_SLUG"]
+
+
+def pin_iri(authority: str, slug: str, version: str) -> str:
+    """The pin IRI for a version, `"0"` for the major IRI. Never derived from the ontology IRI:
+    a derived module's ontology IRI sits under its upstream authority, not this module's."""
+    return f"https://w3id.org/{authority}/{slug}/v{version}/ont"
+
+
 def write_generated(path: Path, text: str) -> None:
     """Write UTF-8 with LF endings on every platform.
 

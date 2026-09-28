@@ -107,10 +107,14 @@ def test_format_reports_missing_inputs(tmp_path: Path):
 # render-docs
 
 
-def _module(tmp_path: Path) -> Path:
+ENV = "MODULE_SLUG=ex\nW3ID_AUTHORITY=testauth\n"
+
+
+def _module(tmp_path: Path, ontology: str = ONTOLOGY, env: str = ENV) -> Path:
     module_dir = tmp_path / "ex"
     (module_dir / "spec").mkdir(parents=True)
-    (module_dir / "spec" / "ex.ttl").write_text(ONTOLOGY, encoding="utf-8")
+    (module_dir / "spec" / "ex.ttl").write_text(ontology, encoding="utf-8")
+    (module_dir / ".env").write_text(env, encoding="utf-8")
     return module_dir
 
 
@@ -155,14 +159,46 @@ def test_render_docs_copies_a_generated_ledger_into_every_tree(tmp_path: Path):
     assert (static / "v0" / "ont" / "ledger.ttl").exists()
 
 
-def test_render_docs_refuses_an_ontology_iri_off_the_url_contract(tmp_path: Path):
-    module_dir = tmp_path / "ex"
-    (module_dir / "spec").mkdir(parents=True)
-    (module_dir / "spec" / "ex.ttl").write_text(
-        ONTOLOGY.replace("https://w3id.org/testauth/ex/v0/ont>", "https://example.org/flat>"),
-        encoding="utf-8",
-    )
-    assert main(["render-docs", "--module-dir", str(module_dir), "--version", "0.1.0"]) == 2
+# The issue's repro: a derived module whose ontology IRI sits under an upstream authority.
+DERIVED_ONTOLOGY = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix ex: <https://example.org/min/v0/ont/> .
+
+<https://example.org/min/v0/ont> a owl:Ontology .
+ex:Thing a owl:Class .
+"""
+DERIVED_ENV = "MODULE_SLUG=min\nMODULE_NAMESPACE=https://example.org/min/v0/ont/\nW3ID_AUTHORITY=sample-org\n"
+
+
+def test_render_docs_takes_pin_iris_from_config_not_the_ontology_iri(tmp_path: Path):
+    module_dir = _module(tmp_path, DERIVED_ONTOLOGY, DERIVED_ENV)
+    assert main(["render-docs", "--module-dir", str(module_dir), "--version", "0.1.0"]) == 0
+    assert main(["render-docs", "--module-dir", str(module_dir), "--version", "0.2.0"]) == 0
+    graph = Graph()
+    graph.parse(module_dir / "website" / "static" / "v0.2.0" / "ont" / "ont.ttl", format="turtle")
+    subject = URIRef("https://example.org/min/v0/ont")
+    assert graph.value(subject, OWL.versionIRI) == URIRef("https://w3id.org/sample-org/min/v0.2.0/ont")
+    assert graph.value(subject, OWL.priorVersion) == URIRef("https://w3id.org/sample-org/min/v0.1.0/ont")
+
+
+@pytest.mark.parametrize("missing", ["W3ID_AUTHORITY", "MODULE_SLUG"])
+def test_render_docs_exits_2_without_w3id_config(tmp_path: Path, missing: str, capsys):
+    env = "".join(line + "\n" for line in ENV.splitlines() if not line.startswith(missing))
+    module_dir = _module(tmp_path, env=env)
+    with pytest.raises(SystemExit) as raised:
+        main(["render-docs", "--module-dir", str(module_dir), "--version", "0.1.0"])
+    assert raised.value.code == 2
+    assert missing in capsys.readouterr().err
+    assert not (module_dir / "website" / "static" / "v0.1.0").exists()
+
+
+def test_render_docs_accepts_an_ontology_iri_of_any_shape(tmp_path: Path):
+    ontology = ONTOLOGY.replace("https://w3id.org/testauth/ex/v0/ont>", "https://example.org/flat>")
+    module_dir = _module(tmp_path, ontology)
+    assert main(["render-docs", "--module-dir", str(module_dir), "--version", "0.1.0"]) == 0
+    graph = Graph()
+    graph.parse(module_dir / "website" / "static" / "v0.1.0" / "ont" / "ont.ttl", format="turtle")
+    version_iri = graph.value(URIRef("https://example.org/flat"), OWL.versionIRI)
+    assert version_iri == URIRef("https://w3id.org/testauth/ex/v0.1.0/ont")
 
 
 # expand-pins

@@ -44,9 +44,11 @@ from ..spec import (
     merge_ontology,
     merge_shapes,
     ontology_files,
+    pin_iri,
     read_env,
     shape_files,
     version_key,
+    w3id_config,
     write_generated,
 )
 
@@ -190,6 +192,7 @@ class ModuleData:
         self.module_dir = module_dir
         self.spec_dir = module_dir / "spec"
         self.env = read_env(module_dir)
+        self.w3id = w3id_config(self.env)
         self.graph = merge_ontology(self.spec_dir)
         self.shapes = merge_shapes(self.spec_dir)
         self.merged = self.graph + self.shapes
@@ -244,13 +247,10 @@ class ModuleData:
 
     @property
     def major_iri(self) -> str:
-        authority = self.env.get("W3ID_AUTHORITY", "")
-        return f"https://w3id.org/{authority}/{self.env.get('MODULE_SLUG', '')}/v0/ont"
+        return self.pin_iri("0")
 
     def pin_iri(self, version: str) -> str:
-        """The immutable pin for a version, always from config: a derived module's ontology IRI
-        sits under its upstream authority, not this module's."""
-        return self.major_iri.replace("/v0/ont", f"/v{version}/ont")
+        return pin_iri(*self.w3id, version)
 
     @property
     def static_base_url(self) -> str:
@@ -554,7 +554,7 @@ class ModuleData:
             "tagline": single_line(self.description),
             "brandSubtitle": self.env.get("BRAND_SUBTITLE", "Reference Data Library"),
             "majorIri": self.major_iri,
-            "pinIriPattern": self.major_iri.replace("/v0/ont", "/v{version}/ont"),
+            "pinIriPattern": self.pin_iri("{version}"),
             "latestVersion": latest_version,
             "latestVersionLabel": f"v{latest_version}",
             "defaultColorMode": self.env.get("DEFAULT_COLOR_MODE", "light"),

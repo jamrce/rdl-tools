@@ -7,13 +7,14 @@ flags, and that the emitted MDX is byte-stable across reruns.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
-from rdflib import RDFS, BNode, Graph, Literal, URIRef
+from rdflib import OWL, RDFS, BNode, Graph, Literal, URIRef
 from rdflib.collection import Collection
 from rdflib.namespace import SH, SKOS
 
@@ -629,6 +630,26 @@ def test_a_module_namespace_disagreeing_with_the_rdf_fails_the_build(module_copy
         encoding="utf-8",
     )
     assert render(module_copy, "--check") == 1
+
+
+def test_render_docs_pin_iri_matches_render_site_data_pin_iri(module_copy: Path):
+    assert main(["render-docs", "--module-dir", str(module_copy), "--version", "0.5.7"]) == 0
+    assert render(module_copy, "--version", "0.5.7") == 0
+    releases = json.loads((module_copy / "website" / "src" / "generated" / "releases.json").read_text(encoding="utf-8"))
+    pin = Graph().parse(module_copy / "website" / "static" / "v0.5.7" / "ont" / "ont.ttl", format="turtle")
+    version_iris = [str(o) for o in pin.objects(URIRef(TOP.rstrip("/")), OWL.versionIRI)]
+    assert version_iris == [next(r["pinIri"] for r in releases if r["id"] == "0.5.7")]
+
+
+@pytest.mark.parametrize("missing", ["W3ID_AUTHORITY", "MODULE_SLUG"])
+def test_render_site_data_exits_2_without_w3id_config(module_copy: Path, missing: str, capsys):
+    env_path = module_copy / ".env"
+    lines = env_path.read_text(encoding="utf-8").splitlines()
+    env_path.write_text("".join(line + "\n" for line in lines if not line.startswith(missing)), encoding="utf-8")
+    with pytest.raises(SystemExit) as raised:
+        render(module_copy, "--version", "0.5.7")
+    assert raised.value.code == 2
+    assert missing in capsys.readouterr().err
 
 
 def test_accent_colour_emits_a_generated_stylesheet_and_removing_it_deletes_it(module_copy: Path):

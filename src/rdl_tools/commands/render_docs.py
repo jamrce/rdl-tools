@@ -17,7 +17,7 @@ from pathlib import Path
 
 from rdflib import OWL, RDF, Graph, Literal, URIRef
 
-from ..spec import find_previous_pin, ledger_files, merge_ontology
+from ..spec import find_previous_pin, ledger_files, merge_ontology, pin_iri, read_env, w3id_config
 
 
 def add_parser(parser: argparse.ArgumentParser) -> None:
@@ -77,19 +77,13 @@ def run(args: argparse.Namespace) -> int:
         print("No owl:Ontology subject found in spec/*.ttl", file=sys.stderr)
         return 2
 
+    authority, slug = w3id_config(read_env(module_dir))
     previous_pin = find_previous_pin(static_dir, version)
-
-    base_iri = str(ontology_iri)
-    if "/v0/ont" not in base_iri:
-        print(f"owl:Ontology subject {base_iri!r} doesn't match the expected '.../v0/ont' shape.", file=sys.stderr)
-        return 2
-    pin_iri = URIRef(base_iri.replace("/v0/ont", f"/v{version}/ont"))
     prior_pin_iri = None
     if previous_pin is not None:
-        prior_version = previous_pin.name[1:]
-        prior_pin_iri = URIRef(base_iri.replace("/v0/ont", f"/v{prior_version}/ont"))
+        prior_pin_iri = URIRef(pin_iri(authority, slug, previous_pin.name[1:]))
 
-    stamp_version(graph, ontology_iri, pin_iri, version, prior_pin_iri)
+    stamp_version(graph, ontology_iri, URIRef(pin_iri(authority, slug, version)), version, prior_pin_iri)
 
     ledger_src = find_ledger(spec_dir)
 
